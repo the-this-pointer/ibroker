@@ -1,0 +1,9 @@
+[submodule "vendor/network-library"]
+	path = vendor/network-library
+	url = https://github.com/the-this-pointer/network-library
+[submodule "vendor/aho-corasick-matching"]
+	path = vendor/aho-corasick-matching
+	url = https://github.com/the-this-pointer/aho-corasick-matching.git
+[submodule "vendor/log-library"]
+	path = vendor/log-library
+	url = https://github.com/the-this-pointer/log-library.git
