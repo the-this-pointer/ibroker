@@ -25,12 +25,8 @@ void thisptr::broker::BrokerConnectionHandler::onMessage(std::string data) {
       return;
 
   Message msg;
-  msg.size = size;
-  msg.type = (MessageType)(m_data[pos + offsetof(Message, type)]);
-
-  uint16_t payloadSize = msg.size - sizeof msg.type;
-  memset(msg.payload, 0, 256);
-  memcpy(msg.payload, m_data.data() + pos + offsetof(Message, payload), payloadSize);
+  MessagePacket packet(msg);
+  packet.fromString(m_data);
 
   std::cout << "message received, size: " << msg.size << ", type: " << msg.type << ", payload: " << msg.payload;
 }

@@ -15,35 +15,30 @@ void stopServer(TcpServer<BrokerConnectionHandler>* s) {
   s->stop();
 }
 
-void client(int idx) {
+void client(int idx, bool* res) {
   TcpClient c;
   REQUIRE(c.connect("127.0.0.1", "7232"));
 
-  char data[128];
-  memset(data, 0, 128);
+  Message msg;
+  msg.type = queueDeclare;
+  msg.size = 10;
+  std::string data = "hi there!";
+  memcpy(msg.payload, data.data(), data.length());
 
-  Message m;
-  std::string messagePayload = "hello!";
-  uint16_t messageSize = sizeof(m.type) + messagePayload.length();
+  MessagePacket packet(msg, true);
+  std::string strPacket = static_cast<std::string>(packet);
 
-  int i = 0;
-  data[i++] = MESSAGE_INDICATOR;
-  data[i++] = MESSAGE_INDICATOR_2;
-  data[i++] = LOBYTE(messageSize);
-  data[i++] = HIBYTE(messageSize);
-  data[i++] = 0x01;
-  for(const char ch: messagePayload)
-    data[i++] = ch;
-  REQUIRE(c.send(data, i) > 0);
+  REQUIRE(c.send(strPacket.c_str(), strPacket.length()) > 0);
 
   char buffer[256] = {0};
-  REQUIRE(c.recv(buffer, 256) <= 0);
+  if (c.recv(buffer, 256) > 0)
+    *res = true;
 
   REQUIRE_FALSE(c.close());
 }
 
 TEST_CASE("handler receives message as desired", "[handler]") {
-  SECTION("success") {
+  SECTION("successfull parsing message") {
     TcpServer<BrokerConnectionHandler> s;
     s.setNewHandler([]() -> std::shared_ptr<BrokerConnectionHandler> {
       return std::make_shared<BrokerConnectionHandler>();
@@ -51,11 +46,13 @@ TEST_CASE("handler receives message as desired", "[handler]") {
     s.start("127.0.0.1", "7232");
 
     std::vector<std::thread> threads;
+    bool clientRes = false;
     threads.emplace_back(stopServer, &s);
-    threads.emplace_back(client, 0);
+    threads.emplace_back(client, 0, &clientRes);
     for(auto& t: threads)
       t.join();
 
+    REQUIRE_FALSE(clientRes);
     REQUIRE(true);
   }
 }
