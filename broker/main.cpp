@@ -1,21 +1,12 @@
-#include <Net.h>
+#include "../lib/ConnectionHandler.h"
 
-using namespace thisptr;
+using namespace thisptr::net;
+using namespace thisptr::broker;
 
 int main()
 {
-  net::TcpServer server;
-
-  server.setConnectCallback([](const std::shared_ptr<thisptr::net::TcpSocket>& conn){
-    std::cout << "new connection!!" << std::endl;
-  });
-  server.setDisconnectCallback([](const std::shared_ptr<thisptr::net::TcpSocket>& conn){
-    std::cout << "client disconnected!!" << std::endl;
-  });
-  server.setMessageCallback(onMessageCallback);
+  TcpServer<BrokerConnectionHandler> server;
   server.start("127.0.0.1", "7232");
-
-
 
   return 0;
 }
