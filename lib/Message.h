@@ -22,7 +22,7 @@ const uint8_t indicator[2] {MESSAGE_INDICATOR, MESSAGE_INDICATOR_2};
 struct Message {
   uint16_t                size {0x00};
   MessageType             type {MessageType::ping};
-  std::vector<uint8_t>    payload;
+  uint8_t                 payload[256];
 } __attribute__((packed));
 
 #endif //IBROKER_MESSAGE_H

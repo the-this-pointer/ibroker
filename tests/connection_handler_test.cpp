@@ -2,6 +2,7 @@
 #define CATCH_CONFIG_MAIN
 #include "catch.hpp"
 #include "../lib/ConnectionHandler.h"
+#include "../lib/Message.h"
 
 using namespace thisptr;
 using namespace thisptr::broker;
@@ -18,14 +19,27 @@ void client(int idx) {
   TcpClient c;
   REQUIRE(c.connect("127.0.0.1", "7232"));
 
-  std::stringstream ss;
-  ss << idx << " : " << "hello!\r\n";
-  REQUIRE(c.send(ss.str().c_str()) > 0);
+  char data[128];
+  memset(data, 0, 128);
+
+  Message m;
+  std::string messagePayload = "hello!";
+  uint16_t messageSize = sizeof(m.type) + messagePayload.length();
+
+  int i = 0;
+  data[i++] = MESSAGE_INDICATOR;
+  data[i++] = MESSAGE_INDICATOR_2;
+  data[i++] = LOBYTE(messageSize);
+  data[i++] = HIBYTE(messageSize);
+  data[i++] = 0x01;
+  for(const char ch: messagePayload)
+    data[i++] = ch;
+  REQUIRE(c.send(data, i) > 0);
 
   char buffer[256] = {0};
-  REQUIRE(c.recv(buffer, 256) == 0);
+  REQUIRE(c.recv(buffer, 256) <= 0);
 
-  REQUIRE(c.close());
+  REQUIRE_FALSE(c.close());
 }
 
 TEST_CASE("handler receives message as desired", "[handler]") {
