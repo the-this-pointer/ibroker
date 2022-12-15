@@ -8,14 +8,17 @@
 #define MESSAGE_INDICATOR           0x1B
 #define MESSAGE_INDICATOR_2         0x1B
 
+#define MAKE_WORD(a,b) ((a & 0xff) | (b & 0xff) << 8)
+#define LOWER(w) (w & 0xff)
+#define HIGHER(w) ((w >> 8) & 0xff)
+
 enum MessageType: uint8_t {
   ping = 0x00,
   queueDeclare = 0x01,
   queueBind = 02,
-  ack = 03,
-  rej = 04,
-  collect = 05,
-  message = 06
+  message = 03,
+  ack = 04,
+  rej = 05,
 };
 
 const uint8_t indicator[2] {MESSAGE_INDICATOR, MESSAGE_INDICATOR_2};
@@ -60,8 +63,8 @@ public:
       str[i++] = MESSAGE_INDICATOR;
       str[i++] = MESSAGE_INDICATOR_2;
     }
-    str[i++] = LOBYTE(m_msg.size);
-    str[i++] = HIBYTE(m_msg.size);
+    str[i++] = LOWER(m_msg.size);
+    str[i++] = HIGHER(m_msg.size);
     str[i++] = m_msg.type;
     for(int j = 0; j < m_msg.size; j++)
       str[i++] = m_msg.payload[j];
@@ -70,47 +73,9 @@ public:
   }
 
   void setIncludeMessageIndicators(bool include) { m_includeMsgIndicators = include; }
-  constexpr std::size_t capacity() const { return sizeof m_msg; }
   constexpr std::size_t size() const { return m_msg.size; }
 private:
   bool m_includeMsgIndicators {false};
-  Message& m_msg;
-};
-
-
-class MessagePacketPayload {
-public:
-  explicit MessagePacketPayload(Message& msg) : m_msg(msg) {
-    std::fill(m_msg.payload, m_msg.payload + sizeof m_msg.payload, 0);
-    m_msg.size = 0;
-    m_msg.type = ping;
-  }
-
-  explicit MessagePacketPayload(Message& msg, std::string& buf) : m_msg(msg) {
-    auto end{std::min(sizeof m_msg.payload, buf.size())};
-    std::copy(buf.begin(), buf.begin() + end, m_msg.payload);
-    m_msg.size = sizeof(m_msg.type) + buf.length();
-    if (buf.size() < sizeof m_msg.payload) {
-      std::fill(&m_msg.payload[buf.size()], m_msg.payload + sizeof m_msg.payload, 0);
-    }
-  }
-
-  MessagePacketPayload(Message& msg, uint8_t* buf, size_t len) : m_msg(msg) {
-    auto end{std::min(sizeof m_msg.payload, len)};
-    std::copy(buf, buf + end, m_msg.payload);
-    m_msg.size = sizeof(m_msg.type) + len;
-    if (len < sizeof m_msg.payload) {
-      std::fill(&m_msg.payload[len], m_msg.payload + sizeof m_msg.payload, 0);
-    }
-  }
-
-  explicit operator std::string() const {
-    return {reinterpret_cast<const char *>(&m_msg.payload[0]), sizeof m_msg.payload};
-  }
-
-  constexpr std::size_t capacity() const { return sizeof m_msg.payload; }
-  constexpr std::size_t size() const { return m_msg.size; }
-private:
   Message& m_msg;
 };
 

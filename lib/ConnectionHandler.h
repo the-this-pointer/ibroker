@@ -2,6 +2,7 @@
 #define IBROKER_CONNECTIONHANDLER_H
 
 #include <Net.h>
+#include "QueueManager.h"
 
 namespace thisptr
 {
@@ -14,6 +15,7 @@ namespace thisptr
       void onMessage(std::string data) override;
 
     private:
+      std::shared_ptr<Queue> m_queue;
       std::string m_data;
     };
   }
