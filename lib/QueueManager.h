@@ -8,6 +8,7 @@
 #include <string>
 #include <memory>
 #include <aho_corasick/aho_corasick.hpp>
+#include <utility>
 #include "Queue.h"
 
 class TestQueueManager;
@@ -38,7 +39,7 @@ private:
 
 class TestQueueManager {
 public:
-  explicit TestQueueManager(std::shared_ptr<QueueManager> qm): m_qm(qm) {}
+  explicit TestQueueManager(std::shared_ptr<QueueManager> qm): m_qm(std::move(qm)) {}
   std::unordered_map<std::string, std::shared_ptr<Queue>>& queues() { return m_qm->m_queues; }
   std::multimap<std::string, std::string>& queueBindings() { return m_qm->m_queueBindings; }
 private:
