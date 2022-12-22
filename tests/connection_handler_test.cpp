@@ -59,13 +59,11 @@ TEST_CASE("queue declare sample", "[handler]") {
     REQUIRE(qm.queueBindings().size() == 0);
 
     auto server = startServer();
-
     std::this_thread::sleep_for(1000ms);
+
     auto chandler = std::make_shared<ClientHandler>();
     AsioTcpSocket<ClientHandler> c(chandler);
-
-    REQUIRE(c.connect("127.0.0.1", "7232"));
-    std::this_thread::sleep_for(500ms);
+    c.connect("127.0.0.1", "7232");
 
     Message msg;
     msg.type = queueDeclare;
@@ -75,16 +73,10 @@ TEST_CASE("queue declare sample", "[handler]") {
 
     MessagePacket packet(msg, true);
     c.send(static_cast<std::string>(packet));
-    std::this_thread::sleep_for(500ms);
-
-    /*c.recv();
-    std::this_thread::sleep_for(500ms);
-
-    REQUIRE(c.close());*/
+    c.recv();
+    std::this_thread::sleep_for(3000ms);
 
     REQUIRE(qm.queues().size() == 1);
     REQUIRE(qm.queueBindings().size() == 1);
-
-    server->stop();
   }
 }

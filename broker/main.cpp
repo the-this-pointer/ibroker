@@ -1,6 +1,12 @@
 #include "../lib/ConnectionHandler.h"
-#include "../lib/QueueManager.h"
+#include <iostream>
+#include <sstream>
+#include <unordered_map>
+#include <vector>
+#include <thread>
+#include <Net.h>
 
+using namespace thisptr::utils;
 using namespace thisptr::net;
 using namespace thisptr::broker;
 using namespace std::chrono_literals;
@@ -28,22 +34,27 @@ public:
     } else
       std::cout << "[client] data sent, len: " << payload.length() << std::endl;
   }
+
 };
 
-int main()
-{
-  TestQueueManager qm(QueueManager::instance());
+auto handler = std::make_shared<ServerHandler>();
+AsyncTcpServer<ServerHandler> s(handler);
 
-  std::shared_ptr<ServerHandler> handler = std::make_shared<ServerHandler>();
-  auto server = std::make_shared<AsyncTcpServer<ServerHandler>>(handler);
-  server->start("127.0.0.1", "7232");
+void stopServer() {
+  // stop server after 10 seconds
+  std::this_thread::sleep_for(10000ms);
+  s.stop();
+}
 
+void client(int idx) {
   std::this_thread::sleep_for(1000ms);
   auto chandler = std::make_shared<ClientHandler>();
   AsioTcpSocket<ClientHandler> c(chandler);
-
-  c.connect("127.0.0.1", "7232");
-  std::this_thread::sleep_for(500ms);
+  if (!c.connect("127.0.0.1", "7232"))
+  {
+    std::cout << idx << " : unable to connect to host" << std::endl;
+    return;
+  }
 
   Message msg;
   msg.type = queueDeclare;
@@ -53,14 +64,16 @@ int main()
 
   MessagePacket packet(msg, true);
   c.send(static_cast<std::string>(packet));
-  std::this_thread::sleep_for(500ms);
 
   c.recv();
-  std::this_thread::sleep_for(500ms);
+  std::this_thread::sleep_for(3000ms);
+}
 
-  c.close();
+int main() {
+  s.start("127.0.0.1", "7232");
 
-  server->stop();
+  client(1);
+  std::this_thread::sleep_for(1000ms);
 
   return 0;
 }
