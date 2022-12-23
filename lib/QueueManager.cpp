@@ -20,7 +20,7 @@ bool QueueManager::newQueue(const std::string &name, const std::string &bindingK
 void QueueManager::publish(const std::string& bindingKey, const std::shared_ptr<MessagePacket> &packet) {
   auto matches = m_trie.parse_text(bindingKey);
   for(const auto& match: matches)
-    std::cout << "match: " << match.first.get_keyword() << std::endl;
+    std::cout << "[matcher] match found: " << match.first.get_keyword() << std::endl;
 }
 
 std::shared_ptr<Queue> QueueManager::bind(const std::string &name) {

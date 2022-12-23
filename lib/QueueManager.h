@@ -29,7 +29,9 @@ public:
 
 protected:
   std::mutex m_mutex;
+  // map of queue names and queues
   std::unordered_map<std::string, std::shared_ptr<Queue>> m_queues;
+  // map of binding keys and queue names
   std::multimap<std::string, std::string> m_queueBindings;
 
   aho_corasick::trie m_trie;
