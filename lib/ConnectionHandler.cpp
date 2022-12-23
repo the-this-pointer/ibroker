@@ -4,18 +4,24 @@
 
 using namespace thisptr::broker;
 
-void ServerHandler::onDisconnected(asio::ip::tcp::socket &sock) {
-  std::cout << "[server] client disconnected" << std::endl;
-  m_connections.erase(&sock);
+void ClientSocket::onDisconnected(asio::ip::tcp::socket &sock) {
+  std::cout << "[socket] disconnected" << std::endl;
 }
 
-bool ServerHandler::onDataReceived(asio::ip::tcp::socket &sock, std::error_code ec, const std::string &payload) {
+void ClientSocket::onDataSent(asio::ip::tcp::socket &sock, std::error_code ec, const std::string &payload) {
   if (ec) {
-    std::cerr << "[server] unable to read from socket, ec: " << ec << std::endl;
+    std::cerr << "[socket] unable to write to socket" << std::endl;
+  } else
+    std::cout << "[socket] data sent, len: " << payload.length() << std::endl;
+}
+
+bool ClientSocket::onDataReceived(asio::ip::tcp::socket &sock, std::error_code ec, const std::string &payload) {
+  if (ec) {
+    std::cerr << "[socket] unable to read from socket, ec: " << ec << std::endl;
     return false;
   }
 
-  std::cout << "[server] data received: " << payload.c_str() << std::endl;
+  std::cout << "[socket] data received: " << payload.c_str() << std::endl;
   m_data.append(payload);
 
   size_t pos = m_data.find(MESSAGE_INDICATOR);
@@ -34,20 +40,20 @@ bool ServerHandler::onDataReceived(asio::ip::tcp::socket &sock, std::error_code 
     m_data = m_data.substr(pos + sizeof(MESSAGE_SIZE_TYPE) + sizeof(MessageType) + size + 1);
   else
     m_data.clear();
-  std::cout << "[server] current data frame: " << packetData << std::endl;
-  std::cout << "[server] current data buffer: " << m_data << std::endl;
+  std::cout << "[socket] current data frame: " << packetData << std::endl;
+  std::cout << "[socket] current data buffer: " << m_data << std::endl;
 
   Message msg;
   std::shared_ptr<MessagePacket> packet = std::make_shared<MessagePacket>(msg);
   packet->fromString(packetData);
 
-  std::cout << "[server] message received, size: " << msg.size << ", type: " << msg.type << ", payload: " << msg.payload << std::endl;
+  std::cout << "[socket] message received, size: " << msg.size << ", type: " << msg.type << ", payload: " << msg.payload << std::endl;
   std::string p{(const char*)msg.payload, msg.size - sizeof msg.type};
   switch (msg.type) {
     case ping:
       break;
     case queueDeclare: {
-      std::cout << "[server] declare queue" << std::endl;
+      std::cout << "[socket] declare queue" << std::endl;
       size_t pos;
       if ((pos = p.find(',')) == std::string::npos) {
         // TODO reject the request
@@ -55,24 +61,24 @@ bool ServerHandler::onDataReceived(asio::ip::tcp::socket &sock, std::error_code 
       }
       const std::string name = p.substr(0, pos);
       const std::string key = p.substr(pos+1);
-      std::cout << "[server] declare queue: " << name << ", key: " << key << std::endl;
+      std::cout << "[socket] declare queue: " << name << ", key: " << key << std::endl;
       QueueManager::instance()->newQueue(name, key);
       break;
     }
     case queueBind:
     {
-      std::cout << "[server] bind queue" << std::endl;
+      std::cout << "[socket] bind queue" << std::endl;
       std::shared_ptr<Queue> q = QueueManager::instance()->bind(p);
       if (!q) {
         // TODO reject the request
         break;
       }
-      m_connections[&sock]->setQueue(q);
+      setQueue(q);
       break;
     }
     case message:
     {
-      std::cout << "[server] message" << std::endl;
+      std::cout << "[socket] message" << std::endl;
       size_t pos;
       if ((pos = p.find(',')) == std::string::npos) {
         // TODO reject the request
@@ -91,6 +97,22 @@ bool ServerHandler::onDataReceived(asio::ip::tcp::socket &sock, std::error_code 
   return true;
 }
 
+void ServerHandler::onDisconnected(asio::ip::tcp::socket &sock) {
+  std::cout << "[server] disconnected" << std::endl;
+  m_connections.erase(&sock);
+}
+
+bool ServerHandler::onDataReceived(asio::ip::tcp::socket &sock, std::error_code ec, const std::string &payload) {
+  if (ec) {
+    std::cerr << "[server] unable to read from socket, ec: " << ec << std::endl;
+    return false;
+  } else if (m_connections.find(&sock) == m_connections.end())
+    return false;
+
+  std::cout << "[server] data received: " << payload.c_str() << std::endl;
+  return true;
+}
+
 void ServerHandler::onDataSent(asio::ip::tcp::socket &sock, std::error_code ec, const std::string &payload) {
   if (ec) {
     std::cerr << "[server] unable to write to socket" << std::endl;
@@ -100,9 +122,8 @@ void ServerHandler::onDataSent(asio::ip::tcp::socket &sock, std::error_code ec, 
 
 void ServerHandler::onNewConnection(asio::ip::tcp::socket &sock) {
   std::cout << "[server] on new connection" << std::endl;
-  auto socket = std::make_shared<ClientSocket>(this->shared_from_this(), sock);
+  auto socket = std::make_shared<ClientSocket>(sock);
+  socket->initialize();
   m_connections[&sock] = socket;
-
-  socket->send("hi from server.");
   socket->recv();
 }

@@ -4,9 +4,11 @@
 #include <condition_variable>
 #include <mutex>
 #include <deque>
+#include <iterator>
+#include <cstddef>
 
 template <typename T>
-class MessageQueue {
+class MessageQueue: public std::deque<T> {
 public:
   MessageQueue() = default;
   MessageQueue(const MessageQueue<T>&) = delete;
@@ -17,59 +19,59 @@ public:
   const T& front()
   {
     std::lock_guard<std::mutex> lock(m_queueMutex);
-    return m_queue.front();
+    return std::deque<T>::front();
   }
 
   const T& back()
   {
     std::lock_guard<std::mutex> lock(m_queueMutex);
-    return m_queue.back();
+    return std::deque<T>::back();
   }
 
   T pop_front()
   {
     std::lock_guard<std::mutex> lock(m_queueMutex);
-    auto t = std::move(m_queue.front());
-    m_queue.pop_front();
+    auto t = std::move(std::deque<T>::front());
+    std::deque<T>::pop_front();
     return t;
   }
 
   T pop_back()
   {
     std::lock_guard<std::mutex> lock(m_queueMutex);
-    auto t = std::move(m_queue.back());
-    m_queue.pop_back();
+    auto t = std::move(std::deque<T>::back());
+    std::deque<T>::pop_back();
     return t;
   }
 
   void push_back(const T& item)
   {
     std::lock_guard<std::mutex> lock(m_queueMutex);
-    m_queue.emplace_back(std::move(item));
+    std::deque<T>::emplace_back(std::move(item));
   }
 
   void push_front(const T& item)
   {
     std::lock_guard<std::mutex> lock(m_queueMutex);
-    m_queue.emplace_front(std::move(item));
+    std::deque<T>::emplace_front(std::move(item));
   }
 
   bool empty()
   {
     std::lock_guard<std::mutex> lock(m_queueMutex);
-    return m_queue.empty();
+    return std::deque<T>::empty();
   }
 
   size_t count()
   {
     std::lock_guard<std::mutex> lock(m_queueMutex);
-    return m_queue.size();
+    return std::deque<T>::size();
   }
 
   void clear()
   {
     std::lock_guard<std::mutex> lock(m_queueMutex);
-    m_queue.clear();
+    std::deque<T>::clear();
   }
 
 private:

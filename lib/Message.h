@@ -1,8 +1,9 @@
 #ifndef IBROKER_MESSAGE_H
 #define IBROKER_MESSAGE_H
 
+#include <string>
 #include <vector>
-#include <stdint.h>
+#include <cstdint>
 
 #define MESSAGE_SIZE                256
 #define MESSAGE_SIZE_TYPE           uint16_t

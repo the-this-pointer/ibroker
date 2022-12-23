@@ -6,17 +6,21 @@
 #include <mutex>
 #include <memory>
 
-class Queue {
-public:
-  virtual void publish(const std::shared_ptr<MessagePacket>& packet)
-  {
-    std::unique_lock<std::mutex> lk(m_mutex);
-    m_messages.push_back(packet);
-  }
+namespace thisptr
+{
+  namespace broker {
+    class ClientSocket;
+    class Queue {
+    public:
+      virtual void publish(const std::shared_ptr<MessagePacket> &packet);
+      virtual void addConnection(std::shared_ptr<ClientSocket> connection);
+      virtual void routePackets();
 
-protected:
-  MessageQueue<std::shared_ptr<MessagePacket>> m_messages;
-  std::mutex m_mutex;
-};
+    protected:
+      MessageQueue <std::weak_ptr<ClientSocket>> m_connections;
+      MessageQueue <std::shared_ptr<MessagePacket>> m_messages;
+    };
+  }
+}
 
 #endif //IBROKER_QUEUE_H

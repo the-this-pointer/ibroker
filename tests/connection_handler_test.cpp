@@ -39,8 +39,10 @@ public:
   bool onDataReceived(asio::ip::tcp::socket& sock, std::error_code ec, const std::string& payload) override {
     if (ec) {
       std::cerr << "[client] unable to read from socket, ec: " << ec << std::endl;
+      return false;
     } else
-      std::cout << "[client] data received: " << payload.c_str() << std::endl;
+      std::cout << "[client] data received: " << payload << std::endl;
+    return true;
   }
 
   void onDataSent(asio::ip::tcp::socket& sock, std::error_code ec, const std::string& payload) override {
@@ -50,7 +52,6 @@ public:
       std::cout << "[client] data sent, len: " << payload.length() << std::endl;
   }
 };
-
 
 TEST_CASE("queue manager test", "[handler]") {
   SECTION("successfull declaration") {
@@ -86,9 +87,11 @@ TEST_CASE("queue manager test", "[handler]") {
     std::this_thread::sleep_for(1000ms);
 
     auto chandler = std::make_shared<ClientHandler>();
-    AsioTcpSocket<ClientHandler> c1(chandler);//, c2(chandler);
+    AsioTcpSocket<ClientHandler> c1(chandler), c2(chandler);
     c1.connect("127.0.0.1", "7232");
-    // c2.connect("127.0.0.1", "7232");
+    c2.connect("127.0.0.1", "7232");
+    c1.recv();
+    c2.recv();
 
     // Declare Queue
     Message msgDeclare;
@@ -99,7 +102,6 @@ TEST_CASE("queue manager test", "[handler]") {
 
     MessagePacket packetDeclare(msgDeclare, true);
     c1.send(static_cast<std::string>(packetDeclare));
-    c1.recv();
     std::this_thread::sleep_for(1000ms);
 
     // Bind Queue
@@ -109,9 +111,10 @@ TEST_CASE("queue manager test", "[handler]") {
     msgBind.size = queueName.length() + sizeof msgBind.type;
     memcpy(msgBind.payload, queueName.data(), queueName.length());
 
-    MessagePacket packetBind(msgDeclare, true);
+    MessagePacket packetBind(msgBind, true);
     c1.send(static_cast<std::string>(packetBind));
-    c1.recv();
+    c2.send(static_cast<std::string>(packetBind));
+
     std::this_thread::sleep_for(1000ms);
 
     // Post Message To Queue
@@ -124,7 +127,6 @@ TEST_CASE("queue manager test", "[handler]") {
 
     MessagePacket packetMessage(msgMessage, true);
     c1.send(static_cast<std::string>(packetMessage));
-    c1.recv();
     std::this_thread::sleep_for(1000ms);
   }
 }
