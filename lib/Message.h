@@ -99,16 +99,6 @@ class MessagePacket {
 public:
   explicit MessagePacket(Message_t& msg, bool includeIndicators = false) : m_msg(msg), m_includeMsgIndicators(includeIndicators) {}
 
-  static MessageSize_t getSizeFromPacket(MessageSize_t size)
-  {
-    return size - sizeof(MessageType_t) - sizeof(MessageId_t) - 1;
-  }
-
-  static MessageSize_t getPacketSize(MessageSize_t payloadSize)
-  {
-    return payloadSize + sizeof(MessageType_t) + sizeof(MessageId_t) - 1;
-  }
-
   static MessagePacket getResultPacket(const Message_t& msg, const MessageResult_t result)
   {
     Message_t respMessage;

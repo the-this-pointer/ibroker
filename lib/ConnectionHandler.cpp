@@ -81,7 +81,7 @@ bool ClientSocket::onDataReceived(asio::ip::tcp::socket &sock, std::error_code e
 
   std::cout << "[socket] message received, size: " << msg << std::endl;
 
-  std::string p{(const char*)msg.body.data(), MessagePacket::getSizeFromPacket(msg.header.size)};
+  std::string p{(const char*)msg.body.data(), msg.header.size};
   switch (msg.header.type) {
     case queueDeclare: {
       std::cout << "[socket] declare queue" << std::endl;
