@@ -142,7 +142,7 @@ TEST_CASE("queue manager test", "[handler]") {
     // Post Message To Queue
     Message msgMessage;
     msgMessage.header.id = id++;
-    msgMessage.header.type = queueBind;
+    msgMessage.header.type = queueMessage;
     std::string messagePayload = "takepic,hi this is sample payload for take picture!";
     msgMessage.setBody(messagePayload);
 

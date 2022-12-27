@@ -4,6 +4,12 @@
 
 using namespace thisptr::broker;
 
+void ClientSocket::initialize() {
+  setHandler(this->shared_from_this());
+  m_status = WaitMessage;
+  recv(MessageIndicatorLength);
+}
+
 void ClientSocket::onDisconnected(asio::ip::tcp::socket &sock) {
   std::cout << "[socket] disconnected" << std::endl;
 }
@@ -21,34 +27,60 @@ bool ClientSocket::onDataReceived(asio::ip::tcp::socket &sock, std::error_code e
     return false;
   }
 
-  std::cout << "[socket] data received: " << payload.c_str() << std::endl;
-  m_data.append(payload);
+  switch (m_status) {
+    case WaitMessage: {
+      if (MessageIndicatorLength > payload.length())
+      {
+        recv(MessageIndicatorLength);
+        return true;
+      }
 
-  size_t pos = m_data.find(MESSAGE_INDICATOR);
-  if (pos == std::string::npos || (m_data.length() > pos+1 && m_data[pos+1] != MESSAGE_INDICATOR_2)) {
-    m_data.clear();
-    return true;
+      uint8_t offset = 0;
+      for (; offset < MessageIndicatorLength;)
+      {
+        if (payload[offset] == MessageIndicator[offset])
+          offset++;
+        else
+        {
+          offset = 0;
+          break;
+        }
+      }
+      if (offset == 0)
+      {
+        recv(MessageIndicatorLength);
+        return true;
+      }
+      m_status = ReadHeader;
+      recv(sizeof(MessageHeader_t));
+      return true;
+    }
+    case ReadHeader: {
+      m_data.clear();
+      m_data.append(payload);
+
+      auto bodySize = (MessageSize_t)payload[offsetof(Message_t, header) + offsetof(MessageHeader_t, size)];
+      if (bodySize > MaxMessageSize)
+        bodySize = MaxMessageSize;
+
+      m_status = ReadBody;
+      recv(bodySize);
+      return true;
+    }
+    case ReadBody: {
+      m_data.append(payload);
+
+      // rest of it handled at bottom lines...
+    }
   }
-  pos += 2; // skip message indicators
-
-  auto size = (MessageSize_t)m_data[pos + offsetof(Message_t, header) + offsetof(MessageHeader_t, size)];
-  if (pos + size >= m_data.length())
-    return true;
-
-  auto packetSize = MessagePacket::getPacketSize(size);
-  std::string packetData = m_data.substr(pos, pos + packetSize);
-  if (m_data.length() >= pos + packetSize + 1)
-    m_data = m_data.substr(pos + packetSize + 1);
-  else
-    m_data.clear();
-  std::cout << "[socket] current data frame: " << packetData << std::endl;
-  std::cout << "[socket] current data buffer: " << m_data << std::endl;
 
   Message msg;
   std::shared_ptr<MessagePacket> packet = std::make_shared<MessagePacket>(msg);
-  packet->fromString(packetData);
+  packet->fromString(m_data);
+  m_data.clear();
 
-  std::cout << "[socket] message received, size: " << msg.header.size << ", type: " << msg.header.type << ", payload: " << (const char*)msg.body.data() << std::endl;
+  std::cout << "[socket] message received, size: " << msg << std::endl;
+
   std::string p{(const char*)msg.body.data(), MessagePacket::getSizeFromPacket(msg.header.size)};
   switch (msg.header.type) {
     case queueDeclare: {
@@ -75,7 +107,7 @@ bool ClientSocket::onDataReceived(asio::ip::tcp::socket &sock, std::error_code e
       setQueue(q);
       break;
     }
-    case message: {
+    case queueMessage: {
       std::cout << "[socket] message" << std::endl;
       size_t pos;
       if ((pos = p.find(',')) == std::string::npos) {
@@ -92,7 +124,14 @@ bool ClientSocket::onDataReceived(asio::ip::tcp::socket &sock, std::error_code e
       QueueManager::instance()->publish(key, packet);
       break;
     }
+    default:
+      std::cout << "[socket] invalid message type received!" << std::endl;
+      break;
   }
+
+  m_status = WaitMessage;
+  recv(MessageIndicatorLength);
+
   return true;
 }
 
@@ -124,5 +163,4 @@ void ServerHandler::onNewConnection(asio::ip::tcp::socket &sock) {
   auto socket = std::make_shared<ClientSocket>(sock);
   socket->initialize();
   m_connections[&sock] = socket;
-  socket->recv();
 }

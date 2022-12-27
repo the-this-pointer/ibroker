@@ -1,25 +1,24 @@
 #ifndef IBROKER_MESSAGE_H
 #define IBROKER_MESSAGE_H
 
+#include <iostream>
 #include <string>
 #include <vector>
 #include <cstdint>
 
-#define MESSAGE_INDICATOR           0x1B
-#define MESSAGE_INDICATOR_2         0x1B
+constexpr uint8_t MessageIndicatorLength = 2;
+constexpr uint8_t MessageIndicator[MessageIndicatorLength] = {0x1B, 0x1B};
 
 typedef enum MessageType: uint8_t {
   queueDeclare = 0x02,
   queueBind = 0x03,
-  message = 0x04,
+  queueMessage = 0x04,
 } MessageType_t;
 
 typedef enum MessageResult: uint8_t {
   ack = 0x00,
   rej = 0x01,
 } MessageResult_t;
-
-const uint8_t indicator[2] {MESSAGE_INDICATOR, MESSAGE_INDICATOR_2};
 
 typedef uint32_t            MessageId_t;
 
@@ -74,6 +73,13 @@ typedef struct Message {
     header.size = data.length() > MaxMessageSize? MaxMessageSize: data.length();
     body.allocate(data);
   }
+
+  friend std::ostream& operator << (std::ostream& os, const Message& msg)
+  {
+    os << "Message #" << msg.header.id << ", type: " << msg.header.type << ", size: " << msg.header.size;
+    return os;
+  }
+
 } Message_t ;
 
 typedef struct __attribute__((packed)) {
@@ -98,9 +104,17 @@ public:
   void fromString(std::string& buf)
   {
     uint8_t offset = 0;
-    if (buf[0] == MESSAGE_INDICATOR) {
-      offset += 2;
+    for (; offset < MessageIndicatorLength;)
+    {
+      if (buf[offset] == MessageIndicator[offset])
+        offset++;
+      else
+      {
+        offset = 0;
+        break;
+      }
     }
+
     memcpy((void *)&m_msg.header, &buf[offset + offsetof(Message_t, header)], sizeof(MessageHeader_t));
     m_msg.body.allocate(buf, offset + sizeof(MessageHeader_t));
   }
@@ -115,8 +129,8 @@ public:
     int i = 0;
     if (m_includeMsgIndicators)
     {
-      str[i++] = MESSAGE_INDICATOR;
-      str[i++] = MESSAGE_INDICATOR_2;
+      for (int k = 0; k < MessageIndicatorLength; k++)
+        str[i++] = MessageIndicator[k];
     }
 
     memcpy((void *) (str.data() + i), &m_msg.header, sizeof(MessageHeader_t));

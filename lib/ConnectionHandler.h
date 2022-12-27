@@ -16,11 +16,17 @@ namespace thisptr
                         public AsyncConnectionHandlerBase<AsioTcpSocket<ClientSocket>>,
                         public AsioTcpSocket<ClientSocket> {
     public:
+      typedef enum: uint8_t {
+        WaitMessage,
+        ReadHeader,
+        ReadBody
+      } HandlerStatus_t;
+
       explicit ClientSocket(asio::ip::tcp::socket& socket):
-          AsioTcpSocket<ClientSocket>(socket)
+          AsioTcpSocket<ClientSocket>(socket), m_status(WaitMessage)
       {}
 
-      void initialize() { setHandler(this->shared_from_this()); }
+      void initialize();
 
       virtual ~ClientSocket() = default;
       void onDisconnected(asio::ip::tcp::socket& sock) override;
@@ -36,6 +42,7 @@ namespace thisptr
     private:
       std::string m_data;
       std::shared_ptr<Queue> m_queue;
+      HandlerStatus_t m_status;
     };
 
     class ServerHandler: public std::enable_shared_from_this<ServerHandler>,
