@@ -31,13 +31,14 @@ bool ClientSocket::onDataReceived(asio::ip::tcp::socket &sock, std::error_code e
   }
   pos += 2; // skip message indicators
 
-  uint16_t size = MAKE_WORD(m_data[pos+offsetof(Message, size)], m_data[pos+offsetof(Message, size)+1]);
+  auto size = (MessageSize_t)m_data[pos + offsetof(Message_t, header) + offsetof(MessageHeader_t, size)];
   if (pos + size >= m_data.length())
     return true;
 
-  std::string packetData = m_data.substr(pos, pos + sizeof(MESSAGE_SIZE_TYPE) + sizeof(MessageType) + size);
-  if (m_data.length() >= pos + sizeof(MESSAGE_SIZE_TYPE) + sizeof(MessageType) + size + 1)
-    m_data = m_data.substr(pos + sizeof(MESSAGE_SIZE_TYPE) + sizeof(MessageType) + size + 1);
+  auto packetSize = MessagePacket::getPacketSize(size);
+  std::string packetData = m_data.substr(pos, pos + packetSize);
+  if (m_data.length() >= pos + packetSize + 1)
+    m_data = m_data.substr(pos + packetSize + 1);
   else
     m_data.clear();
   std::cout << "[socket] current data frame: " << packetData << std::endl;
@@ -47,11 +48,9 @@ bool ClientSocket::onDataReceived(asio::ip::tcp::socket &sock, std::error_code e
   std::shared_ptr<MessagePacket> packet = std::make_shared<MessagePacket>(msg);
   packet->fromString(packetData);
 
-  std::cout << "[socket] message received, size: " << msg.size << ", type: " << msg.type << ", payload: " << msg.payload << std::endl;
-  std::string p{(const char*)msg.payload, msg.size - sizeof msg.type};
-  switch (msg.type) {
-    case ping:
-      break;
+  std::cout << "[socket] message received, size: " << msg.header.size << ", type: " << msg.header.type << ", payload: " << (const char*)msg.body.data() << std::endl;
+  std::string p{(const char*)msg.body.data(), MessagePacket::getSizeFromPacket(msg.header.size)};
+  switch (msg.header.type) {
     case queueDeclare: {
       std::cout << "[socket] declare queue" << std::endl;
       size_t pos;
@@ -76,8 +75,7 @@ bool ClientSocket::onDataReceived(asio::ip::tcp::socket &sock, std::error_code e
       setQueue(q);
       break;
     }
-    case message:
-    {
+    case message: {
       std::cout << "[socket] message" << std::endl;
       size_t pos;
       if ((pos = p.find(',')) == std::string::npos) {
@@ -85,14 +83,15 @@ bool ClientSocket::onDataReceived(asio::ip::tcp::socket &sock, std::error_code e
         break;
       }
       const std::string key = p.substr(0, pos);
-      const std::string payload = p.substr(pos+1);
+      const std::string payload = p.substr(pos + 1);
+      if (key.empty() || payload.empty())
+      {
+        // TODO reject the request
+        break;
+      }
       QueueManager::instance()->publish(key, packet);
       break;
     }
-    case ack:
-      break;
-    case rej:
-      break;
   }
   return true;
 }

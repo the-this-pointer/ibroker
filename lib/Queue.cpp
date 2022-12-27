@@ -22,7 +22,8 @@ void Queue::routePackets() {
     std::string payload = static_cast<std::string>(**it);
     for(itc = m_connections.begin(); itc != m_connections.end();) {
       if(auto c = itc->lock()) {
-        (*c).send(payload);
+        if (c->queue())
+          (*c).send(payload);
         itc++;
       } else
         itc = m_connections.erase(itc);

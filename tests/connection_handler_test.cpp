@@ -53,6 +53,27 @@ public:
   }
 };
 
+TEST_CASE("message packet test", "[packet]") {
+  SECTION("serialization") {
+    Message_t msg;
+    msg.header.id = 0x01;
+    msg.header.type = MessageType::message;
+    msg.setBody("this is a test!");
+
+    MessagePacket packet(msg, true);
+    std::string dataToSend = static_cast<std::string>(packet);
+
+    Message_t msg2;
+    MessagePacket packet2(msg2);
+    packet2.fromString(dataToSend);
+
+    REQUIRE(msg.header.id == msg2.header.id);
+    REQUIRE(msg.header.type == msg2.header.type);
+    REQUIRE(msg.header.size == msg2.header.size);
+    REQUIRE(memcmp(msg.body.data(), msg2.body.data(), msg.header.size) == 0);
+  }
+}
+
 TEST_CASE("queue manager test", "[handler]") {
   SECTION("successfull declaration") {
     TestQueueManager qm(QueueManager::instance());
@@ -60,22 +81,23 @@ TEST_CASE("queue manager test", "[handler]") {
     REQUIRE(qm.queueBindings().size() == 0);
 
     auto server = startServer();
-    std::this_thread::sleep_for(1000ms);
+    std::this_thread::sleep_for(100ms);
 
     auto chandler = std::make_shared<ClientHandler>();
     AsioTcpSocket<ClientHandler> c(chandler);
     c.connect("127.0.0.1", "7232");
 
+    uint8_t id;
     Message msg;
-    msg.type = queueDeclare;
+    msg.header.id = id++;
+    msg.header.type = queueDeclare;
     std::string data = "camera,takepic";
-    msg.size = data.length() + sizeof msg.type;
-    memcpy(msg.payload, data.data(), data.length());
+    msg.setBody(data);
 
     MessagePacket packet(msg, true);
     c.send(static_cast<std::string>(packet));
     c.recv();
-    std::this_thread::sleep_for(1000ms);
+    std::this_thread::sleep_for(100ms);
 
     REQUIRE(qm.queues().size() == 1);
     REQUIRE(qm.queueBindings().size() == 1);
@@ -94,39 +116,38 @@ TEST_CASE("queue manager test", "[handler]") {
     c2.recv();
 
     // Declare Queue
+    uint8_t id;
     Message msgDeclare;
-    msgDeclare.type = queueDeclare;
+    msgDeclare.header.id = id++;
+    msgDeclare.header.type = queueDeclare;
     std::string data = "camera,takepic";
-    msgDeclare.size = data.length() + sizeof msgDeclare.type;
-    memcpy(msgDeclare.payload, data.data(), data.length());
+    msgDeclare.setBody(data);
 
     MessagePacket packetDeclare(msgDeclare, true);
     c1.send(static_cast<std::string>(packetDeclare));
-    std::this_thread::sleep_for(1000ms);
+    std::this_thread::sleep_for(100ms);
 
     // Bind Queue
     Message msgBind;
-    msgBind.type = queueBind;
+    msgBind.header.id = id++;
+    msgBind.header.type = queueBind;
     std::string queueName = "camera";
-    msgBind.size = queueName.length() + sizeof msgBind.type;
-    memcpy(msgBind.payload, queueName.data(), queueName.length());
+    msgBind.setBody(queueName);
 
     MessagePacket packetBind(msgBind, true);
     c1.send(static_cast<std::string>(packetBind));
     c2.send(static_cast<std::string>(packetBind));
-
-    std::this_thread::sleep_for(1000ms);
+    std::this_thread::sleep_for(100ms);
 
     // Post Message To Queue
-
     Message msgMessage;
-    msgMessage.type = message;
+    msgMessage.header.id = id++;
+    msgMessage.header.type = queueBind;
     std::string messagePayload = "takepic,hi this is sample payload for take picture!";
-    msgMessage.size = messagePayload.length() + sizeof msgMessage.type;
-    memcpy(msgMessage.payload, messagePayload.data(), messagePayload.length());
+    msgMessage.setBody(messagePayload);
 
     MessagePacket packetMessage(msgMessage, true);
     c1.send(static_cast<std::string>(packetMessage));
-    std::this_thread::sleep_for(1000ms);
+    std::this_thread::sleep_for(100ms);
   }
 }
