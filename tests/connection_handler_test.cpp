@@ -54,10 +54,28 @@ public:
 };
 
 TEST_CASE("message packet test", "[packet]") {
-  SECTION("serialization") {
+  SECTION("sucess serialization") {
     Message_t msg;
     msg.header.id = 0x01;
-    msg.header.type = MessageType::message;
+    msg.header.type = MessageType::queueMessage;
+    msg.setBody("this is a test!");
+
+    MessagePacket packet(msg, true);
+    std::string dataToSend = static_cast<std::string>(packet);
+
+    Message_t msg2;
+    MessagePacket packet2(msg2, true);
+    packet2.fromString(dataToSend);
+
+    REQUIRE(msg.header.id == msg2.header.id);
+    REQUIRE(msg.header.type == msg2.header.type);
+    REQUIRE(msg.header.size == msg2.header.size);
+    REQUIRE(memcmp(msg.body.data(), msg2.body.data(), msg.header.size) == 0);
+  }
+  SECTION("failed serialization") {
+    Message_t msg;
+    msg.header.id = 0x01;
+    msg.header.type = MessageType::queueMessage;
     msg.setBody("this is a test!");
 
     MessagePacket packet(msg, true);
@@ -67,10 +85,7 @@ TEST_CASE("message packet test", "[packet]") {
     MessagePacket packet2(msg2);
     packet2.fromString(dataToSend);
 
-    REQUIRE(msg.header.id == msg2.header.id);
-    REQUIRE(msg.header.type == msg2.header.type);
-    REQUIRE(msg.header.size == msg2.header.size);
-    REQUIRE(memcmp(msg.body.data(), msg2.body.data(), msg.header.size) == 0);
+    REQUIRE_FALSE(msg.header.id == msg2.header.id);
   }
 }
 
@@ -149,5 +164,11 @@ TEST_CASE("queue manager test", "[handler]") {
     MessagePacket packetMessage(msgMessage, true);
     c1.send(static_cast<std::string>(packetMessage));
     std::this_thread::sleep_for(100ms);
+
+    // TODO check results
+  }
+  SECTION("rejected requests") {
+    // TODO implement this
+    REQUIRE(true);
   }
 }

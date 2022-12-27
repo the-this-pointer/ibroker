@@ -87,7 +87,8 @@ bool ClientSocket::onDataReceived(asio::ip::tcp::socket &sock, std::error_code e
       std::cout << "[socket] declare queue" << std::endl;
       size_t pos;
       if ((pos = p.find(',')) == std::string::npos) {
-        // TODO reject the request
+        MessagePacket result = MessagePacket::getResultPacket(msg, MessageResult_t::rej);
+        send(static_cast<std::string>(result));
         break;
       }
       const std::string name = p.substr(0, pos);
@@ -101,7 +102,8 @@ bool ClientSocket::onDataReceived(asio::ip::tcp::socket &sock, std::error_code e
       std::cout << "[socket] bind queue" << std::endl;
       std::shared_ptr<Queue> q = QueueManager::instance()->bind(p);
       if (!q) {
-        // TODO reject the request
+        MessagePacket result = MessagePacket::getResultPacket(msg, MessageResult_t::rej);
+        send(static_cast<std::string>(result));
         break;
       }
       setQueue(q);
@@ -111,14 +113,16 @@ bool ClientSocket::onDataReceived(asio::ip::tcp::socket &sock, std::error_code e
       std::cout << "[socket] message" << std::endl;
       size_t pos;
       if ((pos = p.find(',')) == std::string::npos) {
-        // TODO reject the request
+        MessagePacket result = MessagePacket::getResultPacket(msg, MessageResult_t::rej);
+        send(static_cast<std::string>(result));
         break;
       }
       const std::string key = p.substr(0, pos);
       const std::string payload = p.substr(pos + 1);
       if (key.empty() || payload.empty())
       {
-        // TODO reject the request
+        MessagePacket result = MessagePacket::getResultPacket(msg, MessageResult_t::rej);
+        send(static_cast<std::string>(result));
         break;
       }
       QueueManager::instance()->publish(key, packet);

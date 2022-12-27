@@ -5,47 +5,55 @@
 #include <string>
 #include <vector>
 #include <cstdint>
-
-constexpr uint8_t MessageIndicatorLength = 2;
-constexpr uint8_t MessageIndicator[MessageIndicatorLength] = {0x1B, 0x1B};
-
-typedef enum MessageType: uint8_t {
-  queueDeclare = 0x02,
-  queueBind = 0x03,
-  queueMessage = 0x04,
-} MessageType_t;
-
-typedef enum MessageResult: uint8_t {
-  ack = 0x00,
-  rej = 0x01,
-} MessageResult_t;
-
-typedef uint32_t            MessageId_t;
-
-typedef size_t              MessageSize_t;
-constexpr MessageSize_t MaxMessageSize = 256;
+#include "GlobalDefinitions.h"
+#include "TemplateHelpers.h"
 
 typedef struct MessageBody{
   MessageBody() = default;
 
   explicit MessageBody(MessageSize_t size)
-  { allocate(size); }
+  { allocateBuffer(size); }
 
   ~MessageBody()
-  { delete[] ptr; }
+  { reset(); }
 
-  void allocate(MessageSize_t size)
+  void allocateBuffer(MessageSize_t size)
   {
-    delete[] ptr;
+    reset();
     ptr = new uint8_t[size > MaxMessageSize? MaxMessageSize: size];
   }
 
-  void allocate(const std::string& data, MessageSize_t offset = 0)
+  template <typename T,
+      thisptr::broker::enable_if_pod<T> = true>
+  void allocate(const T& data)
   {
-    allocate(data.length() - offset);
-    std::copy(data.begin() + offset,
-              data.begin() + offset + data.length(),
+    allocateBuffer(sizeof(T));
+    memcpy(ptr, data, sizeof(T));
+  }
+
+  template <typename T,
+      thisptr::broker::enable_if_string<T> = true>
+  void allocate(const T& data)
+  {
+    allocateBuffer(data.length());
+    std::copy(data.begin(),
+              data.begin() + data.length(),
               ptr);
+  }
+
+  template <typename T,
+      thisptr::broker::enable_if_has_serializer<T> = true>
+  void allocate(const T& data)
+  {
+    auto bodySerializer = thisptr::broker::serializer<T>();
+    allocate(bodySerializer.serializeSize(data));
+    bodySerializer.serialize(data, ptr);
+  }
+
+  inline void reset()
+  {
+    delete[] ptr;
+    ptr = nullptr;
   }
 
   void* data() const
@@ -60,7 +68,7 @@ private:
 
 typedef struct __attribute__((packed)) {
   MessageSize_t           size  { 0x00 };
-  MessageType_t           type  { MessageType::message };
+  MessageType_t           type  { MessageType::queueMessage };
   MessageId_t             id    { 0x00 };
 } MessageHeader_t;
 
@@ -101,10 +109,19 @@ public:
     return payloadSize + sizeof(MessageType_t) + sizeof(MessageId_t) - 1;
   }
 
-  void fromString(std::string& buf)
+  static MessagePacket getResultPacket(const Message_t& msg, const MessageResult_t result)
+  {
+    Message_t respMessage;
+    respMessage.header.id = msg.header.id;
+    respMessage.header.type = queueResult;
+    respMessage.header.size = sizeof(MessageResult_t);
+    return MessagePacket(respMessage, true);
+  }
+
+  void fromString(const std::string& buf)
   {
     uint8_t offset = 0;
-    for (; offset < MessageIndicatorLength;)
+    for (;m_includeMsgIndicators && offset < MessageIndicatorLength;)
     {
       if (buf[offset] == MessageIndicator[offset])
         offset++;
@@ -116,7 +133,7 @@ public:
     }
 
     memcpy((void *)&m_msg.header, &buf[offset + offsetof(Message_t, header)], sizeof(MessageHeader_t));
-    m_msg.body.allocate(buf, offset + sizeof(MessageHeader_t));
+    m_msg.body.allocate(buf.substr(offset + sizeof(MessageHeader_t)));
   }
 
   explicit operator std::string() const {
