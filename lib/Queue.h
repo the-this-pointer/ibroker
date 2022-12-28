@@ -1,7 +1,7 @@
 #ifndef IBROKER_QUEUE_H
 #define IBROKER_QUEUE_H
 
-#include "Message.h"
+#include "MessagePacket.h"
 #include "MessageQueue.h"
 #include <mutex>
 #include <memory>

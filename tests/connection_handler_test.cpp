@@ -4,7 +4,7 @@
 #include "catch.hpp"
 #include "../lib/ConnectionHandler.h"
 #include "../lib/QueueManager.h"
-#include "../lib/Message.h"
+#include "../lib/MessagePacket.h"
 
 using namespace thisptr;
 using namespace thisptr::broker;
@@ -57,7 +57,7 @@ TEST_CASE("message packet test", "[packet]") {
   SECTION("sucess serialization") {
     Message_t msg;
     msg.header.id = 0x01;
-    msg.header.type = MessageType::queueMessage;
+    msg.header.type = static_cast<MessageType_t>(MessageType::queueUserType + 1);
     msg.setBody("this is a test!");
 
     MessagePacket packet(msg, true);
@@ -75,7 +75,7 @@ TEST_CASE("message packet test", "[packet]") {
   SECTION("failed serialization") {
     Message_t msg;
     msg.header.id = 0x01;
-    msg.header.type = MessageType::queueMessage;
+    msg.header.type = static_cast<MessageType_t>(MessageType::queueUserType + 1);
     msg.setBody("this is a test!");
 
     MessagePacket packet(msg, true);
@@ -157,7 +157,7 @@ TEST_CASE("queue manager test", "[handler]") {
     // Post Message To Queue
     Message msgMessage;
     msgMessage.header.id = id++;
-    msgMessage.header.type = queueMessage;
+    msgMessage.header.type = static_cast<MessageType_t>(MessageType::queueUserType + 1);
     std::string messagePayload = "takepic,hi this is sample payload for take picture!";
     msgMessage.setBody(messagePayload);
 
@@ -172,6 +172,11 @@ TEST_CASE("queue manager test", "[handler]") {
     std::cout << "sending other message by c1..." << std::endl;
     c1.send(static_cast<std::string>(packetMessage));
     std::this_thread::sleep_for(100ms);
+
+    /*std::cout << "sending other message by invalid type..." << std::endl;
+    msgMessage.header.type = static_cast<MessageType_t>(MessageType::queueUserType - 1);
+    c1.send(static_cast<std::string>(packetMessage));
+    std::this_thread::sleep_for(100ms);*/
 
     // TODO check results
   }

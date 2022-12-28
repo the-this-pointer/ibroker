@@ -10,11 +10,9 @@ namespace thisptr
 {
   namespace broker
   {
-    using namespace thisptr::net;
-
     class ClientSocket: public std::enable_shared_from_this<ClientSocket>,
-                        public AsyncConnectionHandlerBase<AsioTcpSocket<ClientSocket>>,
-                        public AsioTcpSocket<ClientSocket> {
+                        public ::thisptr::net::AsyncConnectionHandlerBase<::thisptr::net::AsioTcpSocket<ClientSocket>>,
+                        public ::thisptr::net::AsioTcpSocket<ClientSocket> {
     public:
       typedef enum: uint8_t {
         WaitMessage,
@@ -46,7 +44,7 @@ namespace thisptr
     };
 
     class ServerHandler: public std::enable_shared_from_this<ServerHandler>,
-                         public AsyncConnectionHandlerBase<AsioTcpSocket<ServerHandler>> {
+                         public ::thisptr::net::AsyncConnectionHandlerBase<::thisptr::net::AsioTcpSocket<ServerHandler>> {
     public:
       virtual ~ServerHandler() = default;
       void onDisconnected(asio::ip::tcp::socket& sock) override;

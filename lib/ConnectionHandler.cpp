@@ -1,6 +1,6 @@
 #include <asio/ip/tcp.hpp>
 #include "ConnectionHandler.h"
-#include "Message.h"
+#include "MessagePacket.h"
 
 using namespace thisptr::broker;
 
@@ -87,7 +87,8 @@ bool ClientSocket::onDataReceived(asio::ip::tcp::socket &sock, std::error_code e
 
   std::string p{(const char*)msg.body.data(), msg.header.size};
   switch (msg.header.type) {
-    case queueDeclare: {
+    case queueDeclare:
+    {
       std::cout << "[socket] declare queue" << std::endl;
       size_t pos;
       if ((pos = p.find(',')) == std::string::npos) {
@@ -113,7 +114,16 @@ bool ClientSocket::onDataReceived(asio::ip::tcp::socket &sock, std::error_code e
       setQueue(q);
       break;
     }
-    case queueMessage: {
+    default:
+    {
+      if (msg.header.type < MessageType::queueUserType)
+      {
+        std::cout << "[socket] invalid message type received!" << std::endl;
+        MessagePacket result = MessagePacket::getResultPacket(msg, MessageResult_t::rej);
+        send(static_cast<std::string>(result));
+        break;
+      }
+
       std::cout << "[socket] message" << std::endl;
       size_t pos;
       if ((pos = p.find(',')) == std::string::npos) {
@@ -132,9 +142,6 @@ bool ClientSocket::onDataReceived(asio::ip::tcp::socket &sock, std::error_code e
       QueueManager::instance()->publish(key, packet);
       break;
     }
-    default:
-      std::cout << "[socket] invalid message type received!" << std::endl;
-      break;
   }
 
   m_status = WaitMessage;

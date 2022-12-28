@@ -3,7 +3,6 @@
 
 #include <type_traits>
 #include <tuple>
-#include "GlobalDefinitions.h"
 
 namespace thisptr
 {
@@ -12,14 +11,12 @@ namespace thisptr
 
     template <typename T>
     struct serializer {
-      serializer() = delete;
-
-      size_t serializeSize(const std::string& data)
+      size_t serializeSize(const T& data)
       {
         return 0;
       }
 
-      void serialize(const std::string& data, void* buf)
+      void serialize(const T& data, void* buf)
       {
       }
     };
