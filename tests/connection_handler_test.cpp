@@ -99,7 +99,7 @@ TEST_CASE("queue manager test", "[handler]") {
     std::this_thread::sleep_for(100ms);
 
     auto chandler = std::make_shared<ClientHandler>();
-    AsioTcpSocket<ClientHandler> c(chandler);
+    AsyncTcpClient<ClientHandler> c(chandler);
     c.connect("127.0.0.1", "7232");
 
     uint8_t id;
@@ -124,7 +124,7 @@ TEST_CASE("queue manager test", "[handler]") {
     std::this_thread::sleep_for(1000ms);
 
     auto chandler = std::make_shared<ClientHandler>();
-    AsioTcpSocket<ClientHandler> c1(chandler), c2(chandler);
+    AsyncTcpClient<ClientHandler> c1(chandler), c2(chandler);
     c1.connect("127.0.0.1", "7232");
     c2.connect("127.0.0.1", "7232");
     c1.recv();

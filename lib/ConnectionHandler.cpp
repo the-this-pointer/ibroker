@@ -24,6 +24,10 @@ void ClientSocket::onDataSent(asio::ip::tcp::socket &sock, std::error_code ec, c
 bool ClientSocket::onDataReceived(asio::ip::tcp::socket &sock, std::error_code ec, const std::string &payload) {
   if (ec) {
     std::cerr << "[socket] unable to read from socket, ec: " << ec << std::endl;
+    if (ec == asio::error::eof || ec == asio::error::connection_reset)
+    {
+      close();
+    }
     return false;
   }
 
