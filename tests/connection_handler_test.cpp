@@ -165,6 +165,14 @@ TEST_CASE("queue manager test", "[handler]") {
     c1.send(static_cast<std::string>(packetMessage));
     std::this_thread::sleep_for(100ms);
 
+    std::cout << "closing c2" << std::endl;
+    c2.close();
+    std::this_thread::sleep_for(1000ms);
+
+    std::cout << "sending other message by c1..." << std::endl;
+    c1.send(static_cast<std::string>(packetMessage));
+    std::this_thread::sleep_for(100ms);
+
     // TODO check results
   }
   SECTION("rejected requests") {
