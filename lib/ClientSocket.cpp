@@ -1,4 +1,5 @@
 #include "ClientSocket.h"
+#include "Logger.h"
 
 using namespace thisptr;
 using namespace thisptr::broker;
@@ -14,12 +15,12 @@ void ClientSocket::initialize() {
 }
 
 void ClientSocket::onConnected(asio::ip::tcp::socket &sock, const std::string &endpoint) {
-  std::cout << "[client] connected to " << endpoint.c_str() << std::endl;
+  LI("[client] connected to: {}", endpoint);
   recv(MessageIndicatorLength);
 }
 
 void ClientSocket::onDisconnected(asio::ip::tcp::socket &sock) {
-  std::cout << "[client] disconnected" << std::endl;
+  LI("[client] disconnected");
 }
 
 bool ClientSocket::onDataReceived(asio::ip::tcp::socket &sock, std::error_code ec, const std::string &payload) {
@@ -28,7 +29,7 @@ bool ClientSocket::onDataReceived(asio::ip::tcp::socket &sock, std::error_code e
       close();
       return false;
     }
-    std::cerr << "[client] unable to read from socket, ec: " << ec << std::endl;
+    LE("[client] unable to read from socket, ec: {}, {}", ec.value(), ec.message());
     return false;
   }
 
@@ -84,37 +85,36 @@ bool ClientSocket::onDataReceived(asio::ip::tcp::socket &sock, std::error_code e
   packet->fromString(m_data);
   m_data.clear();
 
-  std::cout << "[client] message received: " << msg << std::endl;
+  LT("[client] message received, id: {}, type: {}, size: {}", *&msg.header.id, *&msg.header.type, *&msg.header.size);
   std::string p{(const char*)msg.body.data(), msg.header.size};
 
   if (msg.header.type == MessageType::queueResult && msg.body.data_t()[0] == MessageResult_t::rej) {
-    std::cout << "[client] message with id: " << msg.header.id << " rejected!" << std::endl;
+    LE("[client] message rejected, id: {}", *&msg.header.id);
     return true;
   }
   else if (msg.header.type < MessageType::queueUserType) {
-    std::cout << "[client] invalid message type received!" << std::endl;
+    LE("[client] reserved message type for future use!, id: {}, type: {}", *&msg.header.id, *&msg.header.type);
     return true;
   }
 
-  std::cout << "[client] >> message" << std::endl;
   size_t pos;
   if ((pos = p.find(',')) == std::string::npos) {
-    std::cout << "[client] invalid message payload received!" << std::endl;
+    LE("[client] invalid message payload received!, id: {}", *&msg.header.id);
     return true;
   }
   const std::string key = p.substr(0, pos);
   const std::string msgPayload = p.substr(pos + 1);
   if (key.empty() || msgPayload.empty()) {
-    std::cout << "[client] invalid message payload received! #2" << std::endl;
+    LE("[client] invalid message payload received #2!, id: {}", *&msg.header.id);
     return true;
   }
-  std::cout << "[client] message received: " << msgPayload << std::endl;
+  LD("[client] message received: {}", msgPayload);
   return true;
 }
 
 void ClientSocket::onDataSent(asio::ip::tcp::socket &sock, std::error_code ec, const std::string &payload) {
   if (ec) {
-    std::cerr << "[client] unable to write to socket" << std::endl;
+    LE("[client] unable to write to socket, ec: {}, {}", ec.value(), ec.message());
   } else
-    std::cout << "[client] data sent, len: " << payload.length() << std::endl;
+    LT("[client] data sent, len: {}", payload.length());
 }

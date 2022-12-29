@@ -1,11 +1,14 @@
 
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include "doctest.h"
+#include "spdlog/spdlog.h"
 #include <memory>
+#include <string>
 #include "../lib/ClientSocket.h"
 #include "../lib/ConnectionHandler.h"
 #include "../lib/QueueManager.h"
 #include "../lib/MessagePacket.h"
+#include "../lib/Logger.h"
 
 using namespace thisptr;
 using namespace thisptr::broker;
@@ -28,6 +31,8 @@ void stopServer(const std::shared_ptr<AsyncTcpServer<ServerHandler>>& s) {
 }
 
 TEST_CASE("sucess serialization") {
+  thisptr::broker::Logger::init();
+
   Message_t msg;
   msg.header.id = 0x01;
   msg.header.type = static_cast<MessageType_t>(MessageType::queueUserType + 1);
@@ -47,6 +52,8 @@ TEST_CASE("sucess serialization") {
 }
 
 TEST_CASE("failed serialization") {
+  thisptr::broker::Logger::init();
+
   Message_t msg;
   msg.header.id = 0x01;
   msg.header.type = static_cast<MessageType_t>(MessageType::queueUserType + 1);
@@ -63,6 +70,8 @@ TEST_CASE("failed serialization") {
 }
 
 TEST_CASE("successfull declaration") {
+  thisptr::broker::Logger::init();
+
   TestQueueManager qm(QueueManager::instance());
   CHECK(qm.queues().size() == 0);
   CHECK(qm.queueBindings().size() == 0);
@@ -90,6 +99,8 @@ TEST_CASE("successfull declaration") {
 }
 
 TEST_CASE("successfull message match") {
+  thisptr::broker::Logger::init();
+
   TestQueueManager qm(QueueManager::instance());
 
   auto server = startServer();
@@ -137,15 +148,15 @@ TEST_CASE("successfull message match") {
   c1->send(static_cast<std::string>(packetMessage));
   std::this_thread::sleep_for(100ms);
 
-  std::cout << "closing c2" << std::endl;
+  LT("closing c2");
   c2->close();
   std::this_thread::sleep_for(1000ms);
 
-  std::cout << "sending other message by c1..." << std::endl;
+  LT("sending other message by c1...");
   c1->send(static_cast<std::string>(packetMessage));
   std::this_thread::sleep_for(100ms);
 
-  std::cout << "sending other message by invalid type..." << std::endl;
+  LT("sending other message by invalid type...");
   msgMessage.header.id = id++;
   msgMessage.header.type = static_cast<MessageType_t>(MessageType::queueUserType - 1);
   c1->send(static_cast<std::string>(packetMessage));
@@ -155,6 +166,8 @@ TEST_CASE("successfull message match") {
 }
 
 TEST_CASE("rejected requests") {
+  thisptr::broker::Logger::init();
+
   // TODO implement this
   CHECK(true);
 }

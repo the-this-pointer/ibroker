@@ -14,6 +14,9 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake") # Make our cmak
 include(Warnings)
 include(Coverage)
 
+# options
+option(LOGGER_ENABLED "Enable logger for debugging purposes" ON)
+
 # Use your own option for tests, in case people use your library through add_subdirectory
 cmake_dependent_option(${PROJECT_NAME}_BUILD_TESTS
         "Enable ${PROJECT_NAME} project tests targets" ON # By default we want tests if CTest is enabled

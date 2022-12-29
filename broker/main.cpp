@@ -1,5 +1,6 @@
 #include "../lib/ConnectionHandler.h"
 #include "../lib/ClientSocket.h"
+#include "../lib/Logger.h"
 #include "spdlog/spdlog.h"
 #include <iostream>
 #include <sstream>
@@ -29,7 +30,8 @@ void stopServer(const std::shared_ptr<AsyncTcpServer<ServerHandler>>& s) {
 }
 
 int main() {
-  spdlog::error("Hi from this broker!");
+  thisptr::broker::Logger::init();
+  LE("Hi from this broker!");
 
   TestQueueManager qm(QueueManager::instance());
 
