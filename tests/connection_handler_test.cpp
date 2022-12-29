@@ -26,10 +26,27 @@ void stopServer(const std::shared_ptr<AsyncTcpServer<ServerHandler>>& s) {
   s->stop();
 }
 
-class ClientHandler: public AsyncConnectionHandlerBase<AsioTcpSocket<ClientHandler>> {
+class ClientSocket: public std::enable_shared_from_this<ClientSocket>,
+                    public AsyncConnectionHandlerBase<AsioTcpSocket<ClientSocket>>,
+                    public ::thisptr::net::AsyncTcpClient<ClientSocket> {
 public:
+  typedef enum: uint8_t {
+    WaitMessage,
+    ReadHeader,
+    ReadBody
+  } HandlerStatus_t;
+
+  ClientSocket(): ::thisptr::net::AsyncTcpClient<ClientSocket>()
+  {}
+
+  void initialize() {
+    setHandler(this->shared_from_this());
+    m_status = WaitMessage;
+  }
+  
   void onConnected(asio::ip::tcp::socket& sock, const std::string &endpoint) override {
     std::cout << "[client] connected to " << endpoint.c_str() << std::endl;
+    recv(MessageIndicatorLength);
   }
 
   void onDisconnected(asio::ip::tcp::socket& sock) override {
@@ -38,10 +55,91 @@ public:
 
   bool onDataReceived(asio::ip::tcp::socket& sock, std::error_code ec, const std::string& payload) override {
     if (ec) {
+      if (ec == asio::error::eof || ec == asio::error::connection_reset) {
+        close();
+        return false;
+      }
       std::cerr << "[client] unable to read from socket, ec: " << ec << std::endl;
       return false;
-    } else
-      std::cout << "[client] data received: " << payload << std::endl;
+    }
+
+    switch (m_status) {
+      case WaitMessage: {
+        if (MessageIndicatorLength > payload.length())
+        {
+          recv(MessageIndicatorLength);
+          return true;
+        }
+
+        uint8_t offset = 0;
+        for (; offset < MessageIndicatorLength;)
+        {
+          if (payload[offset] == MessageIndicator[offset])
+            offset++;
+          else
+          {
+            offset = 0;
+            break;
+          }
+        }
+        if (offset == 0)
+        {
+          recv(MessageIndicatorLength);
+          return true;
+        }
+        m_status = ReadHeader;
+        recv(sizeof(MessageHeader_t));
+        return true;
+      }
+      case ReadHeader: {
+        m_data.clear();
+        m_data.append(payload);
+
+        auto bodySize = (MessageSize_t)payload[offsetof(Message_t, header) + offsetof(MessageHeader_t, size)];
+        if (bodySize > MaxMessageSize)
+          bodySize = MaxMessageSize;
+
+        m_status = ReadBody;
+        recv(bodySize);
+        return true;
+      }
+      case ReadBody: {
+        m_data.append(payload);
+
+        // rest of it handled at bottom lines...
+      }
+    }
+    
+    Message msg;
+    std::shared_ptr<MessagePacket> packet = std::make_shared<MessagePacket>(msg);
+    packet->fromString(m_data);
+    m_data.clear();
+
+    std::cout << "[client] message received: " << msg << std::endl;
+    std::string p{(const char*)msg.body.data(), msg.header.size};
+
+    if (msg.header.type == MessageType::queueResult && msg.body.data_t()[0] == MessageResult_t::rej) {
+      std::cout << "[client] message with id: " << msg.header.id << " rejected!" << std::endl;
+      return true;
+    }
+    else if (msg.header.type < MessageType::queueUserType) {
+      std::cout << "[client] invalid message type received!" << std::endl;
+      return true;
+    }
+
+    std::cout << "[client] >> message" << std::endl;
+    size_t pos;
+    if ((pos = p.find(',')) == std::string::npos) {
+      std::cout << "[client] invalid message payload received!" << std::endl;
+      return true;
+    }
+    const std::string key = p.substr(0, pos);
+    const std::string msgPayload = p.substr(pos + 1);
+    if (key.empty() || msgPayload.empty()) {
+      std::cout << "[client] invalid message payload received! #2" << std::endl;
+      return true;
+    }
+    std::cout << "[client] message received: " << msgPayload << std::endl;
     return true;
   }
 
@@ -51,6 +149,9 @@ public:
     } else
       std::cout << "[client] data sent, len: " << payload.length() << std::endl;
   }
+private:
+  std::string m_data;
+  HandlerStatus_t m_status {WaitMessage};
 };
 
 TEST_CASE("message packet test", "[packet]") {
@@ -98,9 +199,9 @@ TEST_CASE("queue manager test", "[handler]") {
     auto server = startServer();
     std::this_thread::sleep_for(100ms);
 
-    auto chandler = std::make_shared<ClientHandler>();
-    AsyncTcpClient<ClientHandler> c(chandler);
-    c.connect("127.0.0.1", "7232");
+    auto c = std::make_shared<ClientSocket>();
+    c->initialize();
+    c->connect("127.0.0.1", "7232");
 
     uint8_t id;
     Message msg;
@@ -110,8 +211,7 @@ TEST_CASE("queue manager test", "[handler]") {
     msg.setBody(data);
 
     MessagePacket packet(msg, true);
-    c.send(static_cast<std::string>(packet));
-    c.recv();
+    c->send(static_cast<std::string>(packet));
     std::this_thread::sleep_for(100ms);
 
     REQUIRE(qm.queues().size() == 1);
@@ -123,12 +223,12 @@ TEST_CASE("queue manager test", "[handler]") {
     auto server = startServer();
     std::this_thread::sleep_for(1000ms);
 
-    auto chandler = std::make_shared<ClientHandler>();
-    AsyncTcpClient<ClientHandler> c1(chandler), c2(chandler);
-    c1.connect("127.0.0.1", "7232");
-    c2.connect("127.0.0.1", "7232");
-    c1.recv();
-    c2.recv();
+    auto c1 = std::make_shared<ClientSocket>();
+    auto c2 = std::make_shared<ClientSocket>();
+    c1->initialize();
+    c2->initialize();
+    c1->connect("127.0.0.1", "7232");
+    c2->connect("127.0.0.1", "7232");
 
     // Declare Queue
     uint8_t id;
@@ -139,7 +239,7 @@ TEST_CASE("queue manager test", "[handler]") {
     msgDeclare.setBody(data);
 
     MessagePacket packetDeclare(msgDeclare, true);
-    c1.send(static_cast<std::string>(packetDeclare));
+    c1->send(static_cast<std::string>(packetDeclare));
     std::this_thread::sleep_for(100ms);
 
     // Bind Queue
@@ -150,8 +250,8 @@ TEST_CASE("queue manager test", "[handler]") {
     msgBind.setBody(queueName);
 
     MessagePacket packetBind(msgBind, true);
-    c1.send(static_cast<std::string>(packetBind));
-    c2.send(static_cast<std::string>(packetBind));
+    c1->send(static_cast<std::string>(packetBind));
+    c2->send(static_cast<std::string>(packetBind));
     std::this_thread::sleep_for(100ms);
 
     // Post Message To Queue
@@ -162,21 +262,22 @@ TEST_CASE("queue manager test", "[handler]") {
     msgMessage.setBody(messagePayload);
 
     MessagePacket packetMessage(msgMessage, true);
-    c1.send(static_cast<std::string>(packetMessage));
+    c1->send(static_cast<std::string>(packetMessage));
     std::this_thread::sleep_for(100ms);
 
     std::cout << "closing c2" << std::endl;
-    c2.close();
+    c2->close();
     std::this_thread::sleep_for(1000ms);
 
     std::cout << "sending other message by c1..." << std::endl;
-    c1.send(static_cast<std::string>(packetMessage));
+    c1->send(static_cast<std::string>(packetMessage));
     std::this_thread::sleep_for(100ms);
 
-    /*std::cout << "sending other message by invalid type..." << std::endl;
+    std::cout << "sending other message by invalid type..." << std::endl;
+    msgMessage.header.id = id++;
     msgMessage.header.type = static_cast<MessageType_t>(MessageType::queueUserType - 1);
-    c1.send(static_cast<std::string>(packetMessage));
-    std::this_thread::sleep_for(100ms);*/
+    c1->send(static_cast<std::string>(packetMessage));
+    std::this_thread::sleep_for(100ms);
 
     // TODO check results
   }

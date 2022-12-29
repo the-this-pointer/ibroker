@@ -8,7 +8,7 @@ void Queue::publish(const std::shared_ptr<MessagePacket> &packet) {
   routePackets();
 }
 
-void Queue::addConnection(std::shared_ptr<ClientSocket> connection) {
+void Queue::addConnection(std::shared_ptr<ClientConnection> connection) {
   m_connections.push_back(connection);
 }
 

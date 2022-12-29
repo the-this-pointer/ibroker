@@ -45,34 +45,34 @@ namespace thisptr {
 
       template <typename T,
           thisptr::broker::enable_if_pod<T> = true>
-      void allocate(const T& data, MessageSize_t* size = nullptr)
+      MessageSize_t allocate(const T& data)
       {
         MessageSize_t sz = sizeof(T);
         allocateBuffer(sz);
         memcpy(ptr, (void *)data, sizeof(T));
-        if (size) *size = sz;
+        return sz;
       }
 
       template <typename T,
           thisptr::broker::enable_if_string<T> = true>
-      void allocate(const T& data, MessageSize_t* size = nullptr)
+      MessageSize_t allocate(const T& data)
       {
         MessageSize_t sz = data.length();
         allocateBuffer(sz);
         std::copy(data.begin(),
                   data.begin() + data.length(),
                   ptr);
-        if (size) *size = sz;
+        return sz;
       }
 
       template <typename T,
           thisptr::broker::enable_if_has_serializer<T> = true>
-      void allocate(const T& data, MessageSize_t* size = nullptr)
+      MessageSize_t allocate(const T& data)
       {
         size_t sz = serializeSize(data);
         allocateBuffer(sz);
         serializeBody(data, ptr);
-        if (size) *size = sz;
+        return sz;
       }
 
       inline void reset()
@@ -104,7 +104,7 @@ namespace thisptr {
       template <typename T>
       void setBody(const T& data)
       {
-        body.allocate(data, &header.size);
+        header.size = body.allocate(data);
       }
 
       friend std::ostream& operator << (std::ostream& os, const Message& msg)
