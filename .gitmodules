@@ -4,9 +4,6 @@
 [submodule "vendor/aho-corasick-matching"]
 	path = vendor/aho-corasick-matching
 	url = https://github.com/the-this-pointer/aho-corasick-matching.git
-[submodule "vendor/fmt"]
-	path = vendor/fmt
-	url = https://github.com/fmtlib/fmt.git
 [submodule "vendor/doctest"]
 	path = vendor/doctest
 	url = https://github.com/onqtam/doctest.git

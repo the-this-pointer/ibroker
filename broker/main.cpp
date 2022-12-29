@@ -1,5 +1,6 @@
 #include "../lib/ConnectionHandler.h"
 #include "../lib/ClientSocket.h"
+#include "spdlog/spdlog.h"
 #include <iostream>
 #include <sstream>
 #include <unordered_map>
@@ -28,6 +29,8 @@ void stopServer(const std::shared_ptr<AsyncTcpServer<ServerHandler>>& s) {
 }
 
 int main() {
+  spdlog::error("Hi from this broker!");
+
   TestQueueManager qm(QueueManager::instance());
 
   auto server = startServer();

@@ -20,11 +20,7 @@ target_include_directories(
         aho-corasick-matching/src
 )
 
-add_subdirectory(fmt EXCLUDE_FROM_ALL)
-target_set_warnings(fmt DISABLE ALL)
-
 add_subdirectory(spdlog EXCLUDE_FROM_ALL)
-target_compile_definitions(spdlog INTERFACE SPDLOG_FMT_EXTERNAL)
 target_set_warnings(spdlog DISABLE ALL)
 
 add_library(doctest INTERFACE)
