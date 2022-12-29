@@ -12,16 +12,16 @@ namespace thisptr {
     class MessagePacket {
     public:
       explicit MessagePacket(Message_t& msg, bool includeIndicators = false) : m_msg(msg), m_includeMsgIndicators(includeIndicators) {}
+      explicit MessagePacket(Message_t&& msg, bool includeIndicators = false) : m_msg(msg), m_includeMsgIndicators(includeIndicators) {}
 
-      static MessagePacket getResultPacket(const Message_t& msg, const MessageResult_t result)
+      static std::string getResponsePacket(const Message_t& msg, const MessageResult_t result)
       {
         Message_t respMessage;
         respMessage.header.id = msg.header.id;
         respMessage.header.type = queueResult;
-        respMessage.header.size = sizeof(MessageResponse_t);
-        /*MessageResponse_t ms { MessageResult::ack };*/
-        respMessage.setBody(MessageResult::ack );
-        return MessagePacket(respMessage, true);
+        MessageResponse_t ms { result };
+        respMessage.setBody(ms );
+        return static_cast<std::string>(MessagePacket(respMessage, true));
       }
 
       void fromString(const std::string& buf)

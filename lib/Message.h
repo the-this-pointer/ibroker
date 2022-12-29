@@ -2,6 +2,8 @@
 #define IBROKER_MESSAGE_H
 
 #include <cstdint>
+#include <string>
+#include <iostream>
 #include "TemplateHelpers.h"
 
 namespace thisptr {
@@ -10,15 +12,15 @@ namespace thisptr {
     constexpr uint8_t MessageIndicator[MessageIndicatorLength] = {0x1B, 0x1B};
 
     typedef enum MessageType: uint16_t {
-      queueDeclare  = 0x02,
-      queueBind     = 0x03,
-      queueResult   = 0x04,
+      queueDeclare  = 0x03,
+      queueBind     = 0x04,
+      queueResult   = 0x05,
       queueUserType = 0xFF,
     } MessageType_t;
 
     typedef enum MessageResult: uint8_t {
-      ack = 0x00,
-      rej = 0x01,
+      ack = 0x01,
+      rej = 0x02,
     } MessageResult_t;
 
     typedef uint32_t            MessageId_t;
@@ -67,10 +69,9 @@ namespace thisptr {
           thisptr::broker::enable_if_has_serializer<T> = true>
       void allocate(const T& data, MessageSize_t* size = nullptr)
       {
-        auto bodySerializer = thisptr::broker::serializer<T>();
-        MessageSize_t sz = bodySerializer.serializeSize(data);
+        size_t sz = serializeSize(data);
         allocateBuffer(sz);
-        bodySerializer.serialize(data, ptr);
+        serializeBody(data, ptr);
         if (size) *size = sz;
       }
 
@@ -119,20 +120,7 @@ namespace thisptr {
     } MessageResponse_t;
 
     template <>
-    struct serializer<MessageResponse_t> {
-      serializer() = delete;
-
-      size_t serializeSize(const MessageResponse_t& data)
-      {
-        return sizeof(MessageResponse_t);
-      }
-
-      void serialize(const MessageResponse_t& data, void* buf)
-      {
-        memcpy(buf, (void *)&data, sizeof(MessageResponse_t));
-      }
-    };
-
+    void serializeBody(const MessageResponse_t& data, void* ptr);
   }
 }
 
