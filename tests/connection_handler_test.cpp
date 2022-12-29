@@ -1,6 +1,8 @@
 
-#include <memory>
+#define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include "doctest.h"
+#include <memory>
+#include "../lib/ClientSocket.h"
 #include "../lib/ConnectionHandler.h"
 #include "../lib/QueueManager.h"
 #include "../lib/MessagePacket.h"
@@ -38,9 +40,9 @@ TEST_CASE("sucess serialization") {
   MessagePacket packet2(msg2, true);
   packet2.fromString(dataToSend);
 
-  CHECK(msg.header.id == msg2.header.id);
-  CHECK(msg.header.type == msg2.header.type);
-  CHECK(msg.header.size == msg2.header.size);
+  CHECK(*&msg.header.id == *&msg2.header.id);
+  CHECK(*&msg.header.type == *&msg2.header.type);
+  CHECK(*&msg.header.size == *&msg2.header.size);
   CHECK(memcmp(msg.body.data(), msg2.body.data(), msg.header.size) == 0);
 }
 
@@ -57,7 +59,7 @@ TEST_CASE("failed serialization") {
   MessagePacket packet2(msg2);
   packet2.fromString(dataToSend);
 
-  CHECK(msg.header.id != msg2.header.id);
+  CHECK(*&msg.header.id != *&msg2.header.id);
 }
 
 TEST_CASE("successfull declaration") {
