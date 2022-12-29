@@ -7,7 +7,7 @@
 #include <mutex>
 #include <string>
 #include <memory>
-#include <aho_corasick/aho_corasick.hpp>
+#include <aho_corasick.hpp>
 #include <utility>
 #include "Queue.h"
 

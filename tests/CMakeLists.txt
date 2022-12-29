@@ -2,16 +2,15 @@
 # Locate test sources
 #
 FILE (GLOB_RECURSE test_SRCS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp)
-FILE (GLOB_RECURSE lib_SRCS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/../lib/*.cpp)
 
 #
 # Test build rules
 #
 IF (NOT CMAKE_CROSSCOMPILING)
 	FOREACH (T_FILE ${test_SRCS})
-		GET_FILENAME_COMPONENT (T_NAME ${T_FILE} NAME_WE)
-		ADD_EXECUTABLE (${T_NAME} ${T_FILE} ${lib_SRCS})
-		ADD_TEST (${T_NAME} ${T_NAME})
-		target_link_libraries(${T_NAME} PRIVATE netLib_static -static-libgcc -static-libstdc++ -static)
+		get_filename_component (T_NAME ${T_FILE} NAME_WE)
+		add_executable (${T_NAME} ${T_FILE})
+		add_test (NAME ${T_NAME} COMMAND ${T_NAME} ${TEST_RUNNER_PARAMS})
+		target_link_libraries(${T_NAME} PRIVATE ibroker_lib doctest::doctest -static-libgcc -static-libstdc++ -static)
 	ENDFOREACH (T_FILE ${test_SRCS})
 ENDIF (NOT CMAKE_CROSSCOMPILING)

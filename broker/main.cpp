@@ -1,4 +1,5 @@
 #include "../lib/ConnectionHandler.h"
+#include "../lib/ClientSocket.h"
 #include <iostream>
 #include <sstream>
 #include <unordered_map>
@@ -26,81 +27,67 @@ void stopServer(const std::shared_ptr<AsyncTcpServer<ServerHandler>>& s) {
   s->stop();
 }
 
-class ClientHandler: public AsyncConnectionHandlerBase<AsioTcpSocket<ClientHandler>> {
-public:
-  void onConnected(asio::ip::tcp::socket& sock, const std::string &endpoint) override {
-    std::cout << "[client] connected to " << endpoint.c_str() << std::endl;
-  }
-
-  void onDisconnected(asio::ip::tcp::socket& sock) override {
-    std::cout << "[client] disconnected" << std::endl;
-  }
-
-  bool onDataReceived(asio::ip::tcp::socket& sock, std::error_code ec, const std::string& payload) override {
-    if (ec) {
-      std::cerr << "[client] unable to read from socket, ec: " << ec << std::endl;
-      return false;
-    } else
-      std::cout << "[client] data received: " << payload << std::endl;
-    return true;
-  }
-
-  void onDataSent(asio::ip::tcp::socket& sock, std::error_code ec, const std::string& payload) override {
-    if (ec) {
-      std::cerr << "[client] unable to write to socket" << std::endl;
-    } else
-      std::cout << "[client] data sent, len: " << payload.length() << std::endl;
-  }
-};
-
 int main() {
   TestQueueManager qm(QueueManager::instance());
 
   auto server = startServer();
   std::this_thread::sleep_for(1000ms);
 
-  auto chandler = std::make_shared<ClientHandler>();
-  AsioTcpSocket<ClientHandler> c1(chandler), c2(chandler);
-  c1.connect("127.0.0.1", "7232");
-  c2.connect("127.0.0.1", "7232");
-  c1.recv();
-  c2.recv();
+  auto c1 = std::make_shared<ClientSocket>();
+  auto c2 = std::make_shared<ClientSocket>();
+  c1->initialize();
+  c2->initialize();
+  c1->connect("127.0.0.1", "7232");
+  c2->connect("127.0.0.1", "7232");
 
   // Declare Queue
+  uint8_t id;
   Message msgDeclare;
-  msgDeclare.type = queueDeclare;
+  msgDeclare.header.id = id++;
+  msgDeclare.header.type = queueDeclare;
   std::string data = "camera,takepic";
-  msgDeclare.size = data.length() + sizeof msgDeclare.type;
-  memcpy(msgDeclare.payload, data.data(), data.length());
+  msgDeclare.setBody(data);
 
   MessagePacket packetDeclare(msgDeclare, true);
-  c1.send(static_cast<std::string>(packetDeclare));
-  std::this_thread::sleep_for(1000ms);
+  c1->send(static_cast<std::string>(packetDeclare));
+  std::this_thread::sleep_for(100ms);
 
   // Bind Queue
   Message msgBind;
-  msgBind.type = queueBind;
+  msgBind.header.id = id++;
+  msgBind.header.type = queueBind;
   std::string queueName = "camera";
-  msgBind.size = queueName.length() + sizeof msgBind.type;
-  memcpy(msgBind.payload, queueName.data(), queueName.length());
+  msgBind.setBody(queueName);
 
   MessagePacket packetBind(msgBind, true);
-  c1.send(static_cast<std::string>(packetBind));
-  c2.send(static_cast<std::string>(packetBind));
-
-  std::this_thread::sleep_for(1000ms);
+  c1->send(static_cast<std::string>(packetBind));
+  c2->send(static_cast<std::string>(packetBind));
+  std::this_thread::sleep_for(100ms);
 
   // Post Message To Queue
-
   Message msgMessage;
-  msgMessage.type = message;
+  msgMessage.header.id = id++;
+  msgMessage.header.type = static_cast<MessageType_t>(MessageType::queueUserType + 1);
   std::string messagePayload = "takepic,hi this is sample payload for take picture!";
-  msgMessage.size = messagePayload.length() + sizeof msgMessage.type;
-  memcpy(msgMessage.payload, messagePayload.data(), messagePayload.length());
+  msgMessage.setBody(messagePayload);
 
   MessagePacket packetMessage(msgMessage, true);
-  c1.send(static_cast<std::string>(packetMessage));
+  c1->send(static_cast<std::string>(packetMessage));
+  std::this_thread::sleep_for(100ms);
+
+  std::cout << "closing c2" << std::endl;
+  c2->close();
   std::this_thread::sleep_for(1000ms);
+
+  std::cout << "sending other message by c1..." << std::endl;
+  c1->send(static_cast<std::string>(packetMessage));
+  std::this_thread::sleep_for(100ms);
+
+  std::cout << "sending other message by invalid type..." << std::endl;
+  msgMessage.header.id = id++;
+  msgMessage.header.type = static_cast<MessageType_t>(MessageType::queueUserType - 1);
+  c1->send(static_cast<std::string>(packetMessage));
+  std::this_thread::sleep_for(100ms);
 
   return 0;
 }

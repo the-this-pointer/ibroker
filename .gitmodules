@@ -4,6 +4,12 @@
 [submodule "vendor/aho-corasick-matching"]
 	path = vendor/aho-corasick-matching
 	url = https://github.com/the-this-pointer/aho-corasick-matching.git
-[submodule "vendor/log-library"]
-	path = vendor/log-library
-	url = https://github.com/the-this-pointer/log-library.git
+[submodule "vendor/fmt"]
+	path = vendor/fmt
+	url = https://github.com/fmtlib/fmt.git
+[submodule "vendor/doctest"]
+	path = vendor/doctest
+	url = https://github.com/onqtam/doctest.git
+[submodule "vendor/spdlog"]
+	path = vendor/spdlog
+	url = https://github.com/gabime/spdlog.git
