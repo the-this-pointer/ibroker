@@ -109,6 +109,9 @@ bool ClientSocket::onDataReceived(asio::ip::tcp::socket &sock, std::error_code e
     return true;
   }
   LD("[client] message received: {}", msgPayload);
+
+  m_status = WaitMessage;
+  recv(MessageIndicatorLength);
   return true;
 }
 
