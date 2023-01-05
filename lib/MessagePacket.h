@@ -38,29 +38,70 @@ namespace thisptr {
           }
         }
 
-        memcpy((void *)&m_msg.header, &buf[offset + offsetof(Message_t, header)], sizeof(MessageHeader_t));
-        m_msg.body.allocate(buf.substr(offset + sizeof(MessageHeader_t)));
+        memcpy((void *)&m_msg.header.size,
+               &buf[offset],
+               sizeof(MessageSize_t));
+        offset += sizeof(MessageSize_t);
+
+        memcpy((void *)&m_msg.header.type,
+               &buf[offset],
+               sizeof(MessageType_t));
+        offset += sizeof(MessageType_t);
+
+        memcpy((void *)&m_msg.header.id,
+               &buf[offset],
+               sizeof(MessageId_t));
+        offset += sizeof(MessageId_t);
+
+        size_t topicStart = offset;
+        size_t topicEnd = buf.find(BodyIndicator, topicStart);
+
+        /*
+         * We may don't have any topic at packet. So maybe start and end will equal,
+         * but we always should have body indicator in our packet.
+         */
+        if (topicEnd == std::string::npos || topicStart > topicEnd)
+          throw InvalidMessageException();
+
+        m_msg.header.topic.clear();
+        m_msg.header.topic.resize(topicEnd - topicStart);
+        memcpy((void *)m_msg.header.topic.data(), &buf[topicStart], m_msg.header.topic.capacity());
+
+        m_msg.body.allocate(buf.substr(topicEnd + BodyIndicatorLength));
       }
 
       explicit operator std::string() const {
         std::string str;
-        if (!m_includeMsgIndicators)
-          str.resize(sizeof(MessageHeader_t) + std::min(m_msg.header.size, MaxMessageSize));
-        else
-          str.resize(2 + sizeof(MessageHeader_t) + std::min(m_msg.header.size, MaxMessageSize));
+        const size_t bodySize = std::min(m_msg.header.size, MaxMessageSize);
+        size_t packetSize = m_msg.header.headerSize() + bodySize;
+        if (m_includeMsgIndicators)
+          packetSize += 2;
+        str.resize(packetSize);
 
-        int i = 0;
+        size_t i = 0;
         if (m_includeMsgIndicators)
         {
           for (int k = 0; k < MessageIndicatorLength; k++)
             str[i++] = MessageIndicator[k];
         }
 
-        memcpy((void *) (str.data() + i), &m_msg.header, sizeof(MessageHeader_t));
-        i += sizeof(MessageHeader_t);
+        memcpy((void *) (str.data() + i), &m_msg.header.size, sizeof(MessageSize_t));
+        i += sizeof(MessageSize_t);
 
-        for(int j = 0; j < m_msg.header.size; j++)
-          str[i++] = (char)m_msg.body.data_t()[j];
+        memcpy((void *) (str.data() + i), &m_msg.header.type, sizeof(MessageType_t));
+        i += sizeof(MessageType_t);
+
+        memcpy((void *) (str.data() + i), &m_msg.header.id, sizeof(MessageId_t));
+        i += sizeof(MessageId_t);
+
+        memcpy((void *) (str.data() + i), m_msg.header.topic.data(), m_msg.header.topic.length());
+        i += m_msg.header.topic.length();
+
+        memcpy((void *) (str.data() + i), BodyIndicator.data(), BodyIndicatorLength);
+        i += BodyIndicatorLength;
+
+        memcpy((void *) (str.data() + i), m_msg.body.data_t(), bodySize);
+        i += bodySize;
 
         return str;
       }

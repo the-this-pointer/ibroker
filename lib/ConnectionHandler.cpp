@@ -7,8 +7,7 @@ using namespace thisptr::broker;
 
 void ClientConnection::initialize() {
   setHandler(this->shared_from_this());
-  m_status = WaitMessage;
-  recv(MessageIndicatorLength);
+  waitForMessage();
 }
 
 void ClientConnection::onDisconnected(asio::ip::tcp::socket &sock) {
@@ -22,7 +21,7 @@ void ClientConnection::onDataSent(asio::ip::tcp::socket &sock, std::error_code e
     LD("[socket] data sent, len: {}", payload.length());
 }
 
-bool ClientConnection::onDataReceived(asio::ip::tcp::socket &sock, std::error_code ec, const std::string &payload) {
+bool ClientConnection::onDataReceived(asio::ip::tcp::socket &sock, std::error_code ec, const std::string &data) {
   if (ec) {
     if (ec == asio::error::eof || ec == asio::error::connection_reset) {
       close();
@@ -34,16 +33,16 @@ bool ClientConnection::onDataReceived(asio::ip::tcp::socket &sock, std::error_co
 
   switch (m_status) {
     case WaitMessage: {
-      if (MessageIndicatorLength > payload.length())
+      if (MessageIndicatorLength > data.length())
       {
-        recv(MessageIndicatorLength);
+        waitForMessage();
         return true;
       }
 
       uint8_t offset = 0;
       for (; offset < MessageIndicatorLength;)
       {
-        if (payload[offset] == MessageIndicator[offset])
+        if (data[offset] == MessageIndicator[offset])
           offset++;
         else
         {
@@ -53,27 +52,25 @@ bool ClientConnection::onDataReceived(asio::ip::tcp::socket &sock, std::error_co
       }
       if (offset == 0)
       {
-        recv(MessageIndicatorLength);
+        waitForMessage();
         return true;
       }
-      m_status = ReadHeader;
-      recv(sizeof(MessageHeader_t));
+      readHeader();
       return true;
     }
     case ReadHeader: {
       m_data.clear();
-      m_data.append(payload);
+      m_data.append(data);
 
-      auto bodySize = (MessageSize_t)payload[offsetof(Message_t, header) + offsetof(MessageHeader_t, size)];
+      auto bodySize = (MessageSize_t)data[offsetof(Message_t, header) + offsetof(MessageHeader_t, size)];
       if (bodySize > MaxMessageSize)
         bodySize = MaxMessageSize;
 
-      m_status = ReadBody;
-      recv(bodySize);
+      readBody(bodySize);
       return true;
     }
     case ReadBody: {
-      m_data.append(payload);
+      m_data.append(data);
 
       // rest of it handled at bottom lines...
     }
@@ -86,27 +83,26 @@ bool ClientConnection::onDataReceived(asio::ip::tcp::socket &sock, std::error_co
 
   LT("[socket] message received, id: {}, type: {}, size: {}", *&msg.header.id, *&msg.header.type, *&msg.header.size);
 
-  std::string p{(const char*)msg.body.data(), msg.header.size};
   switch (msg.header.type) {
     case queueDeclare:
     {
-      size_t pos;
-      if ((pos = p.find(',')) == std::string::npos) {
-        LE("[socket] invalid payload for declare queue, id: {}", *&msg.header.id);
+      std::string name{(const char*)msg.body.data(), msg.header.size};
+      const std::string key = msg.header.topic;
+      if (key.empty()) {
+        LE("[socket] empty topic received, id: {}, queue name: {}", *&msg.header.id, name);
         send(MessagePacket::getResponsePacket(msg, MessageResult_t::rej));
         break;
       }
-      const std::string name = p.substr(0, pos);
-      const std::string key = p.substr(pos+1);
       LT("[socket] declare queue: {}, key: {}", name, key);
       QueueManager::instance()->newQueue(name, key);
       break;
     }
     case queueBind:
     {
-      std::shared_ptr<Queue> q = QueueManager::instance()->bind(p);
+      std::string name{(const char*)msg.body.data(), msg.header.size};
+      std::shared_ptr<Queue> q = QueueManager::instance()->bind(name);
       if (!q) {
-        LE("[socket] queue not bound yet, id: {}, queue name: {}", *&msg.header.id, p);
+        LE("[socket] queue not bound yet, id: {}, queue name: {}", *&msg.header.id, name);
         send(MessagePacket::getResponsePacket(msg, MessageResult_t::rej));
         break;
       }
@@ -122,27 +118,19 @@ bool ClientConnection::onDataReceived(asio::ip::tcp::socket &sock, std::error_co
         break;
       }
 
-      size_t pos;
-      if ((pos = p.find(',')) == std::string::npos) {
-        LE("[socket] invalid message payload received!, id: {}", *&msg.header.id);
-        send(MessagePacket::getResponsePacket(msg, MessageResult_t::rej));
-        break;
-      }
-      const std::string key = p.substr(0, pos);
-      const std::string payload = p.substr(pos + 1);
-      if (key.empty() || payload.empty())
+      std::string body{(const char*)msg.body.data(), msg.header.size};
+      if (msg.header.topic.empty() || body.empty())
       {
-        LE("[socket] invalid message payload received #2!, id: {}", *&msg.header.id);
+        LE("[socket] invalid message data received #2!, id: {}", *&msg.header.id);
         send(MessagePacket::getResponsePacket(msg, MessageResult_t::rej));
         break;
       }
-      QueueManager::instance()->publish(key, packet);
+      QueueManager::instance()->publish(msg.header.topic, packet);
       break;
     }
   }
 
-  m_status = WaitMessage;
-  recv(MessageIndicatorLength);
+  waitForMessage();
 
   return true;
 }

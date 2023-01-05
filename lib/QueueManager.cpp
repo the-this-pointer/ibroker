@@ -3,6 +3,8 @@
 
 using namespace thisptr::broker;
 
+std::shared_ptr<QueueManager> thisptr::broker::QueueManager::m_ins = nullptr;
+
 bool QueueManager::newQueue(const std::string &name, const std::string &bindingKey) {
   std::unique_lock<std::mutex> lk(m_mutex);
   if (m_queues.find(name) != m_queues.end())

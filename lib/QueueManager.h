@@ -18,8 +18,9 @@ namespace thisptr {
     class QueueManager {
     public:
       static std::shared_ptr<QueueManager> instance() {
-        static std::shared_ptr<QueueManager> ins = std::make_shared<QueueManager>();
-        return ins;
+        if (!m_ins)
+          m_ins = std::make_shared<QueueManager>();
+        return m_ins;
       }
 
       QueueManager() = default;
@@ -41,6 +42,8 @@ namespace thisptr {
 
       aho_corasick::trie m_trie;
     private:
+      static std::shared_ptr<QueueManager> m_ins;
+
       friend class TestQueueManager;
     };
 

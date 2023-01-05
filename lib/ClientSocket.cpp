@@ -23,7 +23,7 @@ void ClientSocket::onDisconnected(asio::ip::tcp::socket &sock) {
   LI("[client] disconnected");
 }
 
-bool ClientSocket::onDataReceived(asio::ip::tcp::socket &sock, std::error_code ec, const std::string &payload) {
+bool ClientSocket::onDataReceived(asio::ip::tcp::socket &sock, std::error_code ec, const std::string &data) {
   if (ec) {
     if (ec == asio::error::eof || ec == asio::error::connection_reset) {
       close();
@@ -35,16 +35,16 @@ bool ClientSocket::onDataReceived(asio::ip::tcp::socket &sock, std::error_code e
 
   switch (m_status) {
     case WaitMessage: {
-      if (MessageIndicatorLength > payload.length())
+      if (MessageIndicatorLength > data.length())
       {
-        recv(MessageIndicatorLength);
+        waitForMessage();
         return true;
       }
 
       uint8_t offset = 0;
       for (; offset < MessageIndicatorLength;)
       {
-        if (payload[offset] == MessageIndicator[offset])
+        if (data[offset] == MessageIndicator[offset])
           offset++;
         else
         {
@@ -54,27 +54,25 @@ bool ClientSocket::onDataReceived(asio::ip::tcp::socket &sock, std::error_code e
       }
       if (offset == 0)
       {
-        recv(MessageIndicatorLength);
+        waitForMessage();
         return true;
       }
-      m_status = ReadHeader;
-      recv(sizeof(MessageHeader_t));
+      readHeader();
       return true;
     }
     case ReadHeader: {
       m_data.clear();
-      m_data.append(payload);
+      m_data.append(data);
 
-      auto bodySize = (MessageSize_t)payload[offsetof(Message_t, header) + offsetof(MessageHeader_t, size)];
+      auto bodySize = (MessageSize_t)data[offsetof(Message_t, header) + offsetof(MessageHeader_t, size)];
       if (bodySize > MaxMessageSize)
         bodySize = MaxMessageSize;
 
-      m_status = ReadBody;
-      recv(bodySize);
+      readBody(bodySize);
       return true;
     }
     case ReadBody: {
-      m_data.append(payload);
+      m_data.append(data);
 
       // rest of it handled at bottom lines...
     }
@@ -86,8 +84,6 @@ bool ClientSocket::onDataReceived(asio::ip::tcp::socket &sock, std::error_code e
   m_data.clear();
 
   LT("[client] message received, id: {}, type: {}, size: {}", *&msg.header.id, *&msg.header.type, *&msg.header.size);
-  std::string p{(const char*)msg.body.data(), msg.header.size};
-
   if (msg.header.type == MessageType::queueResult && msg.body.data_t()[0] == MessageResult_t::rej) {
     LE("[client] message rejected, id: {}", *&msg.header.id);
     return true;
@@ -97,21 +93,14 @@ bool ClientSocket::onDataReceived(asio::ip::tcp::socket &sock, std::error_code e
     return true;
   }
 
-  size_t pos;
-  if ((pos = p.find(',')) == std::string::npos) {
-    LE("[client] invalid message payload received!, id: {}", *&msg.header.id);
+  std::string msgPayload{(const char*)msg.body.data(), msg.header.size};
+  if (msg.header.topic.empty() || msgPayload.empty()) {
+    LE("[client] invalid message data received #2!, id: {}", *&msg.header.id);
     return true;
   }
-  const std::string key = p.substr(0, pos);
-  const std::string msgPayload = p.substr(pos + 1);
-  if (key.empty() || msgPayload.empty()) {
-    LE("[client] invalid message payload received #2!, id: {}", *&msg.header.id);
-    return true;
-  }
-  LD("[client] message received: {}", msgPayload);
+  LD("[client] message received [topic: {}]: {}", msg.header.topic, msgPayload);
 
-  m_status = WaitMessage;
-  recv(MessageIndicatorLength);
+  waitForMessage();
   return true;
 }
 

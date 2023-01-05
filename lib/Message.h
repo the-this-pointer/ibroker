@@ -10,6 +10,8 @@ namespace thisptr {
   namespace broker {
     constexpr uint8_t MessageIndicatorLength = 2;
     constexpr uint8_t MessageIndicator[MessageIndicatorLength] = {0x1B, 0x1B};
+    constexpr uint8_t BodyIndicatorLength = 2;
+    const std::string BodyIndicator = {'\r', '\r'};
 
     typedef enum MessageType: uint16_t {
       queueDeclare  = 0x03,
@@ -91,10 +93,20 @@ namespace thisptr {
       uint8_t* ptr {nullptr};
     } MessageBody_t;
 
-    typedef struct __attribute__((packed)) {
+    typedef struct MessageHeader {
       MessageSize_t           size  { 0x00 };
       MessageType_t           type  { MessageType::queueDeclare };
       MessageId_t             id    { 0x00 };
+      std::string             topic;
+
+      constexpr inline static size_t topicOffset() {
+        return sizeof(MessageSize_t) + sizeof(MessageType_t) + sizeof(MessageId_t);
+      }
+
+      size_t headerSize() const {
+        return topicOffset() + topic.length() + BodyIndicatorLength;
+      }
+
     } MessageHeader_t;
 
     typedef struct Message {
@@ -121,6 +133,8 @@ namespace thisptr {
 
     template <>
     void serializeBody(const MessageResponse_t& data, void* ptr);
+
+    class InvalidMessageException: public std::exception {};
   }
 }
 

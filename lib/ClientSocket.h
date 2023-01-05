@@ -23,8 +23,17 @@ namespace thisptr {
       void initialize();
       void onConnected(asio::ip::tcp::socket& sock, const std::string &endpoint) override;
       void onDisconnected(asio::ip::tcp::socket& sock) override;
-      bool onDataReceived(asio::ip::tcp::socket& sock, std::error_code ec, const std::string& payload) override;
+      bool onDataReceived(asio::ip::tcp::socket& sock, std::error_code ec, const std::string& data) override;
       void onDataSent(asio::ip::tcp::socket& sock, std::error_code ec, const std::string& payload) override;
+    private:
+      inline void waitForMessage() { m_status = WaitMessage; recv(MessageIndicatorLength); }
+
+      inline void readHeader() {
+        m_status = ReadHeader;
+        recv_until(BodyIndicator);
+      }
+
+      inline void readBody(const MessageSize_t& size) { m_status = ReadBody; recv(size); }
 
     private:
       std::string m_data;
