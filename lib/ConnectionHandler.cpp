@@ -94,13 +94,13 @@ bool ClientConnection::onDataReceived(asio::ip::tcp::socket &sock, std::error_co
         break;
       }
       LT("[socket] declare queue: {}, key: {}", name, key);
-      QueueManager::instance()->newQueue(name, key);
+      QueueManager::instance().newQueue(name, key);
       break;
     }
     case queueBind:
     {
       std::string name{(const char*)msg.body.data(), msg.header.size};
-      std::shared_ptr<Queue> q = QueueManager::instance()->bind(name);
+      std::shared_ptr<Queue> q = QueueManager::instance().bind(name);
       if (!q) {
         LE("[socket] queue not bound yet, id: {}, queue name: {}", *&msg.header.id, name);
         send(MessagePacket::getResponsePacket(msg, MessageResult_t::rej));
@@ -125,7 +125,7 @@ bool ClientConnection::onDataReceived(asio::ip::tcp::socket &sock, std::error_co
         send(MessagePacket::getResponsePacket(msg, MessageResult_t::rej));
         break;
       }
-      QueueManager::instance()->publish(msg.header.topic, packet);
+      QueueManager::instance().publish(msg.header.topic, packet);
       break;
     }
   }

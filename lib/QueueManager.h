@@ -17,20 +17,18 @@ namespace thisptr {
 
     class QueueManager {
     public:
-      static std::shared_ptr<QueueManager> instance() {
-        if (!m_ins)
-          m_ins = std::make_shared<QueueManager>();
-        return m_ins;
+      static QueueManager& instance(){
+        static QueueManager instance;
+        return instance;
       }
 
       QueueManager() = default;
-
       ~QueueManager() = default;
+      QueueManager(const QueueManager&)= delete;
+      QueueManager& operator=(const QueueManager&)= delete;
 
       bool newQueue(const std::string &name, const std::string &bindingKey);
-
       void publish(const std::string &bindingKey, const std::shared_ptr<MessagePacket> &packet);
-
       std::shared_ptr<Queue> bind(const std::string &name);
 
     protected:
@@ -42,21 +40,19 @@ namespace thisptr {
 
       aho_corasick::trie m_trie;
     private:
-      static std::shared_ptr<QueueManager> m_ins;
-
       friend class TestQueueManager;
     };
 
     class TestQueueManager {
     public:
-      explicit TestQueueManager(std::shared_ptr<QueueManager> qm) : m_qm(std::move(qm)) {}
+      explicit TestQueueManager(QueueManager& qm) : m_qm(qm) {}
 
-      std::unordered_map<std::string, std::shared_ptr<Queue>> &queues() { return m_qm->m_queues; }
+      std::unordered_map<std::string, std::shared_ptr<Queue>> &queues() { return m_qm.m_queues; }
 
-      std::multimap<std::string, std::string> &queueBindings() { return m_qm->m_queueBindings; }
+      std::multimap<std::string, std::string> &queueBindings() { return m_qm.m_queueBindings; }
 
     private:
-      std::shared_ptr<QueueManager> m_qm;
+      QueueManager& m_qm;
     };
   }
 }

@@ -94,7 +94,7 @@ TEST_CASE("successfull declaration") {
 
   MessagePacket packet(msg, true);
   c->send(static_cast<std::string>(packet));
-  std::this_thread::sleep_for(1000ms);
+  std::this_thread::sleep_for(100ms);
 
   CHECK(qm.queues().size() == 1);
   CHECK(qm.queueBindings().size() == 1);
