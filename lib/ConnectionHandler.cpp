@@ -135,9 +135,11 @@ bool ClientConnection::onDataReceived(asio::ip::tcp::socket &sock, std::error_co
   return true;
 }
 
-void ServerHandler::onDisconnected(asio::ip::tcp::socket &sock) {
+void ServerHandler::onServerDisconnected() {
   LI("[server] disconnected");
-  m_connections.erase(&sock);
+  for(auto&c: m_connections)
+    c.second->close();
+  m_connections.clear();
 }
 
 bool ServerHandler::onDataReceived(asio::ip::tcp::socket &sock, std::error_code ec, const std::string &payload) {

@@ -57,7 +57,7 @@ namespace thisptr
                          public ::thisptr::net::AsyncConnectionHandlerBase<::thisptr::net::AsioTcpSocket<ServerHandler>> {
     public:
       virtual ~ServerHandler() = default;
-      void onDisconnected(asio::ip::tcp::socket& sock) override;
+      void onServerDisconnected() override;
       bool onDataReceived(asio::ip::tcp::socket& sock, std::error_code ec, const std::string& payload) override;
       void onDataSent(asio::ip::tcp::socket& sock, std::error_code ec, const std::string& payload) override;
       void onNewConnection(asio::ip::tcp::socket& sock) override;

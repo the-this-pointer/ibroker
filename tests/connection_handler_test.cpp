@@ -169,6 +169,27 @@ TEST_CASE("successfull message match") {
   // TODO check results
 }
 
+TEST_CASE("server cleanup") {
+  thisptr::broker::Logger::init();
+
+  auto server = startServer();
+  std::this_thread::sleep_for(1000ms);
+
+  auto c1 = std::make_shared<ClientSocket>();
+  auto c2 = std::make_shared<ClientSocket>();
+  c1->initialize();
+  c2->initialize();
+  c1->connect("127.0.0.1", "7232");
+  c2->connect("127.0.0.1", "7232");
+  std::this_thread::sleep_for(1000ms);
+
+  server->stop();
+  std::this_thread::sleep_for(1000ms);
+
+  // TODO implement this
+  CHECK(true);
+}
+
 TEST_CASE("rejected requests") {
   thisptr::broker::Logger::init();
 
